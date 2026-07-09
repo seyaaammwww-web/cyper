@@ -27,7 +27,7 @@ namespace CafeClient
         private void InitializeComponent()
         {
             Text = "Cafe Client Configuration";
-            Size = new Size(420, 520);
+            ClientSize = new Size(420, 560);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -138,7 +138,7 @@ namespace CafeClient
             {
                 Text = "Save",
                 Size = new Size(100, 35),
-                Location = new Point(180, 470),
+                Location = new Point(180, 510),
                 BackColor = Color.FromArgb(99, 102, 241),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat
@@ -150,7 +150,7 @@ namespace CafeClient
             {
                 Text = "Cancel",
                 Size = new Size(100, 35),
-                Location = new Point(290, 470),
+                Location = new Point(290, 510),
                 BackColor = Color.FromArgb(60, 60, 70),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat
