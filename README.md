@@ -19,9 +19,26 @@ The manager phone runs the HTTP server and SQLite database. Windows PCs connect 
 - **Session management** — Start/stop from manager or client; checkout receipt with time + snacks
 - **Live thumbnails** — Remote screen preview from each PC
 - **Snack ordering** — Customers order from tray app; staff gets push notifications
+- **Customer profiles** — Prepaid balance, loyalty points, visit history, per-customer spend
+- **Reservations** — Book PCs ahead with due-soon alerts on the dashboard
+- **Activity log** — Full audit trail of sessions, control commands, and ops actions
+- **Advanced remote control** — Lock/unlock, shutdown, restart, sleep, maintenance mode, timed shutdown with customer warning, cancel pending shutdown, on-screen messages
 - **Flexible configuration** — Add/edit PCs, rates, snack menu, billing rules from Settings
 - **Analytics** — Today's revenue, 7/30-day charts, session history
 - **Secure LAN API** — Bearer token authentication between clients and manager
+
+## Web Ops Console
+
+The repository also includes a **Next.js ops console** (deployable to Vercel) backed by a **Neon Postgres** database. It mirrors and extends the manager app for browser-based operation:
+
+- Live PC fleet dashboard with session timers, zone filters, and bulk actions
+- Session start/stop with real billing (happy hour discounts, rounding rules, loyalty points)
+- Snack order board with stock tracking and low-stock alerts
+- Reservations, customer management (prepaid/loyalty), and settings
+- Analytics: revenue trends, hourly heatmap, per-PC utilization, top snacks
+- Activity feed with full audit trail
+
+Run locally with `npm install && npm run dev` (requires `DATABASE_URL`).
 
 ## Requirements
 
