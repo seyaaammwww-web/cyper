@@ -11,7 +11,7 @@ export function Card({
   className?: string
 }) {
   return (
-    <div className={`glass rounded-xl border ${className}`}>
+    <div className={`glass clip-plate border ${className}`}>
       {children}
     </div>
   )
@@ -29,7 +29,9 @@ export function SectionTitle({
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div className="flex flex-col gap-0.5">
-        <h1 className="text-xl font-bold tracking-tight text-balance">{title}</h1>
+        <h1 className="text-xl font-bold uppercase tracking-wide text-balance">
+          {title}
+        </h1>
         {subtitle && (
           <p className="text-sm text-muted-foreground text-pretty">{subtitle}</p>
         )}
@@ -67,7 +69,7 @@ export function Btn({
     <button
       type="button"
       {...props}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg border font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 ${
+      className={`clip-plate inline-flex items-center justify-center gap-1.5 border font-semibold uppercase tracking-wider transition-colors disabled:pointer-events-none disabled:opacity-50 ${
         size === 'sm' ? 'px-2.5 py-1.5 text-xs' : 'px-3.5 py-2 text-sm'
       } ${BUTTON_STYLES[variant]} ${className}`}
     />
@@ -92,7 +94,7 @@ export function Badge({
   }
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ${tones[tone]} ${className}`}
+      className={`inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider ${tones[tone]} ${className}`}
     >
       {children}
     </span>
@@ -133,12 +135,12 @@ export function Modal({
       }}
     >
       <div
-        className={`glass-deep flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-primary/25 sm:rounded-2xl ${
+        className={`glass-deep hud-brackets flex max-h-[92dvh] w-full flex-col overflow-hidden border border-primary/30 ${
           wide ? 'sm:max-w-2xl' : 'sm:max-w-md'
         }`}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-          <h2 className="text-sm font-bold">{title}</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wider">{title}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -155,7 +157,7 @@ export function Modal({
 }
 
 export const inputCls =
-  'w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm text-foreground outline-none backdrop-blur transition-colors placeholder:text-muted-foreground focus:border-primary'
+  'w-full border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary'
 
 export function Field({
   label,

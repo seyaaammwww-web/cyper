@@ -1,19 +1,26 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Rajdhani, Geist_Mono } from 'next/font/google'
 import { Shell } from '@/components/shell'
 import './globals.css'
 
-const _geistSans = Geist({ subsets: ['latin'] })
-const _geistMono = Geist_Mono({ subsets: ['latin'] })
+const rajdhani = Rajdhani({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-rajdhani',
+})
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
+})
 
 export const metadata: Metadata = {
-  title: 'Cyper Ops Console — Gaming Cafe Management',
+  title: 'Kazoza Command Console — Gaming Cafe Management',
   description:
-    'Cyper gaming cafe operations console: live PC fleet, session billing, snack orders, reservations, customers, analytics, and audit trail — backed by a real database.',
+    'Kazoza Gaming Center command console: live station deployment map, session billing, snack orders, reservations, customers, analytics, and audit trail — backed by a real database.',
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0b0712',
+  themeColor: '#0d0f0c',
 }
 
 export default function RootLayout({
@@ -22,7 +29,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="bg-background">
+    <html
+      lang="en"
+      className={`bg-background ${rajdhani.variable} ${geistMono.variable}`}
+    >
       <body className="font-sans antialiased">
         <Shell>{children}</Shell>
       </body>

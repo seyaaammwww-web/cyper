@@ -55,11 +55,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
             alt="Kazoza Gaming Center logo"
             width={180}
             height={180}
-            className="w-full border border-border grayscale-[35%] transition-all hover:grayscale-0"
+            className="clip-plate w-full border border-border grayscale-[45%] transition-all hover:grayscale-0"
             priority
           />
-          <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary">
-            // Command Console
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.25em] text-primary">
+            [ COMMAND CONSOLE ]
           </span>
         </div>
 
@@ -81,7 +81,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <Icon className="size-4" aria-hidden="true" />
                 <span className="flex-1">{label}</span>
                 {count > 0 && (
-                  <span className="flex size-5 items-center justify-center rounded-full bg-warning font-mono text-[10px] font-bold text-warning-foreground">
+                  <span className="clip-plate flex size-5 items-center justify-center bg-warning font-mono text-[10px] font-bold text-warning-foreground">
                     {count}
                   </span>
                 )}
@@ -122,7 +122,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 {state?.settings.cafeName ?? 'Kazoza'}
               </span>
               <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
-                // Command Console
+                [ COMMAND CONSOLE ]
               </span>
             </div>
           </div>
@@ -156,7 +156,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <Icon className="size-5" aria-hidden="true" />
                 <span className="sr-only">{label}</span>
                 {count > 0 && (
-                  <span className="absolute -top-0.5 right-0 flex size-4 items-center justify-center rounded-full bg-warning font-mono text-[9px] font-bold text-warning-foreground">
+                  <span className="absolute -top-0.5 right-0 flex size-4 items-center justify-center bg-warning font-mono text-[9px] font-bold text-warning-foreground">
                     {count}
                   </span>
                 )}
