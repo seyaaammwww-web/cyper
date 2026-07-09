@@ -38,7 +38,7 @@ class CafeRepository {
   Future<int> createSession(int pcId, int startTime) =>
       _db.createSession(pcId, startTime);
 
-  Future<Map<String, dynamic>?> validateSnackOrder({
+  Future<Map<String, dynamic>> validateSnackOrder({
     required String snackName,
     required double clientPrice,
     required int quantity,
