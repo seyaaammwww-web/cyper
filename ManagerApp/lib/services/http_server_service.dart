@@ -30,6 +30,7 @@ class HttpServerService {
   final Map<int, int> _lastThumbnailWrite = {};
   static const int _thumbnailMinIntervalSec = 10;
   final _orderLimiter = RateLimiter(maxRequests: 30, window: const Duration(minutes: 1));
+  final _heartbeatLimiter = RateLimiter(maxRequests: 120, window: const Duration(minutes: 1));
   final _repo = CafeRepository.instance;
 
   PCProvider? _pcProvider;
@@ -67,6 +68,7 @@ class HttpServerService {
     app.post('/end_session', _handleEndSession);
     app.post('/order', _handleOrder);
     app.get('/command', _handleCommand);
+    app.get('/control', _handleControl);
     app.get('/screenshot/<pcId>', _handleScreenshot);
     app.get('/health', _handleHealth);
     app.get('/pcs', _handleGetPCs);
@@ -368,6 +370,27 @@ class HttpServerService {
 
       return shelf.Response.ok(
         jsonEncode({'command': command}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return _errorResponse('Invalid request: $e', 400);
+    }
+  }
+
+  /// Returns the next queued control command for a PC (FIFO, consumed on read).
+  /// Response: {"command": "lock"|"unlock"|"shutdown"|"restart"|"sleep"|
+  ///            "message"|"none", "payload": "..."}
+  Future<shelf.Response> _handleControl(shelf.Request request) async {
+    try {
+      final pcId = int.tryParse(request.url.queryParameters['pc_id'] ?? '') ?? 0;
+      if (pcId == 0) return _errorResponse('Missing pc_id', 400);
+
+      final next = await DatabaseHelper.instance.dequeueControlCommand(pcId);
+      return shelf.Response.ok(
+        jsonEncode({
+          'command': next?['command'] ?? 'none',
+          'payload': next?['payload'],
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e) {
