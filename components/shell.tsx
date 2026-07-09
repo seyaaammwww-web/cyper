@@ -44,8 +44,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-dvh w-full">
+      {/* Fixed artwork backdrop behind everything */}
+      <div className="art-backdrop" aria-hidden="true" />
+
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-56 flex-col border-r border-border bg-card md:flex">
+      <aside className="glass-deep sticky top-0 hidden h-dvh w-56 flex-col border-r border-border md:flex">
         <div className="flex flex-col items-center gap-2 border-b border-border px-4 py-4">
           <Image
             src="/images/kazoza-logo.jpg"
@@ -104,7 +107,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile header */}
-        <header className="flex items-center justify-between border-b border-border bg-card/80 px-4 py-2.5 backdrop-blur md:hidden">
+        <header className="glass sticky top-0 z-40 flex items-center justify-between border-b px-4 py-2.5 md:hidden">
           <div className="flex items-center gap-2.5">
             <Image
               src="/images/kazoza-logo.jpg"
@@ -133,7 +136,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         {/* Mobile bottom nav */}
         <nav
-          className="fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-border bg-card/95 px-1 py-1.5 backdrop-blur md:hidden"
+          className="glass-deep fixed inset-x-0 bottom-0 z-40 flex justify-around border-t border-border px-1 py-1.5 md:hidden"
           aria-label="Main"
         >
           {NAV.map(({ href, label, icon: Icon }) => {

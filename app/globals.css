@@ -29,6 +29,9 @@
   --animate-neon-flicker: neon-flicker 4s linear infinite;
   --animate-float-slow: float-slow 5s ease-in-out infinite;
   --animate-aisle-flow: aisle-flow 3s linear infinite;
+  --animate-crystal-drift: crystal-drift 9s ease-in-out infinite;
+  --animate-scan-sweep: scan-sweep 7s linear infinite;
+  --animate-hue-breathe: hue-breathe 8s ease-in-out infinite;
 }
 
 html {
@@ -38,14 +41,61 @@ html {
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
-  background-image:
-    radial-gradient(ellipse 80% 50% at 20% -10%, rgb(255 46 209 / 0.08), transparent),
-    radial-gradient(ellipse 60% 40% at 90% 0%, rgb(41 224 255 / 0.06), transparent);
-  background-attachment: fixed;
 }
 
 ::selection {
   background-color: color-mix(in oklab, var(--color-primary) 35%, transparent);
+}
+
+/* --- Artwork backdrop layers (fixed, behind everything) --- */
+
+.art-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  background-image: url('/images/kazoza-art.png');
+  background-size: cover;
+  background-position: center 20%;
+  animation: var(--animate-hue-breathe);
+}
+
+.art-backdrop::before {
+  /* Neon tube texture blended along the top edge */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/images/kazoza-neon.jpg');
+  background-size: cover;
+  background-position: top;
+  mix-blend-mode: screen;
+  opacity: 0.22;
+  mask-image: linear-gradient(180deg, black 0%, transparent 55%);
+}
+
+.art-backdrop::after {
+  /* Darkening veil + vignette so content stays readable */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 120% 90% at 50% 40%, rgb(11 7 18 / 0.55) 0%, rgb(11 7 18 / 0.88) 70%, rgb(11 7 18 / 0.97) 100%),
+    linear-gradient(180deg, rgb(11 7 18 / 0.55), rgb(11 7 18 / 0.75));
+}
+
+/* --- Glassmorphism panels floating above the artwork --- */
+
+.glass {
+  background: color-mix(in oklab, var(--color-card) 62%, transparent);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border-color: color-mix(in oklab, var(--color-primary) 22%, var(--color-border));
+}
+
+.glass-deep {
+  background: color-mix(in oklab, var(--color-card) 78%, transparent);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
 }
 
 /* --- Neon effect utilities --- */
@@ -74,6 +124,14 @@ body {
     inset 0 0 8px color-mix(in oklab, var(--color-accent) 12%, transparent);
 }
 
+/* Big soft bloom for occupied stations */
+.bloom {
+  box-shadow:
+    0 0 10px color-mix(in oklab, var(--color-primary) 60%, transparent),
+    0 0 32px color-mix(in oklab, var(--color-primary) 30%, transparent),
+    inset 0 0 12px color-mix(in oklab, var(--color-primary) 20%, transparent);
+}
+
 .floor-grid {
   background-image:
     linear-gradient(rgb(255 46 209 / 0.05) 1px, transparent 1px),
@@ -81,16 +139,48 @@ body {
   background-size: 24px 24px;
 }
 
+/* Scanline sheen that sweeps down the floor map */
+.scan-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in oklab, var(--color-accent) 7%, transparent) 46%,
+    color-mix(in oklab, var(--color-primary) 10%, transparent) 50%,
+    color-mix(in oklab, var(--color-accent) 7%, transparent) 54%,
+    transparent 100%
+  );
+  background-size: 100% 300%;
+  animation: var(--animate-scan-sweep);
+}
+
+/* Floating crystal shard (rotated square) */
+.crystal {
+  position: absolute;
+  pointer-events: none;
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  opacity: 0.5;
+  filter: blur(0.5px) drop-shadow(0 0 6px var(--color-primary));
+  animation: var(--animate-crystal-drift);
+}
+
 @keyframes neon-pulse {
   0%,
   100% {
     box-shadow:
       0 0 6px color-mix(in oklab, var(--color-primary) 50%, transparent),
+      0 0 20px color-mix(in oklab, var(--color-primary) 20%, transparent),
       inset 0 0 6px color-mix(in oklab, var(--color-primary) 12%, transparent);
   }
   50% {
     box-shadow:
-      0 0 16px color-mix(in oklab, var(--color-primary) 80%, transparent),
+      0 0 16px color-mix(in oklab, var(--color-primary) 85%, transparent),
+      0 0 40px color-mix(in oklab, var(--color-primary) 40%, transparent),
       inset 0 0 12px color-mix(in oklab, var(--color-primary) 25%, transparent);
   }
 }
@@ -136,10 +226,45 @@ body {
   }
 }
 
+@keyframes crystal-drift {
+  0%,
+  100% {
+    transform: rotate(45deg) translateY(0);
+    opacity: 0.5;
+  }
+  50% {
+    transform: rotate(65deg) translateY(-16px);
+    opacity: 0.85;
+  }
+}
+
+@keyframes scan-sweep {
+  from {
+    background-position: 0 -150%;
+  }
+  to {
+    background-position: 0 150%;
+  }
+}
+
+@keyframes hue-breathe {
+  0%,
+  100% {
+    filter: saturate(1) brightness(1);
+  }
+  50% {
+    filter: saturate(1.25) brightness(1.08);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .neon-text,
   .neon-text-cyan {
     text-shadow: none;
+  }
+  .scan-sheen,
+  .crystal {
+    display: none;
   }
   *,
   ::before,
