@@ -13,6 +13,7 @@ class PCProvider extends ChangeNotifier {
   List<PC> _pcs = [];
   final Map<int, String> _pendingCommands = {};
   final Map<int, int> _offlineDurations = {};
+  final Set<int> _lockedPCs = {};
   Timer? _heartbeatTimer;
   static const int _offlineThreshold = 15;
 
@@ -134,6 +135,46 @@ class PCProvider extends ChangeNotifier {
     await DatabaseHelper.instance.clearPendingCommand(pcId);
   }
 
+  // ---- Remote control ----------------------------------------------------
+
+  bool isLocked(int pcId) => _lockedPCs.contains(pcId);
+
+  /// Queue a transient control command delivered to the client via /control.
+  Future<void> _sendControl(int pcId, String command, {String? payload}) async {
+    await DatabaseHelper.instance
+        .queueControlCommand(pcId, command, payload: payload);
+  }
+
+  Future<void> lockPC(int pcId) async {
+    await _sendControl(pcId, 'lock');
+    _lockedPCs.add(pcId);
+    notifyListeners();
+  }
+
+  Future<void> unlockPC(int pcId) async {
+    await _sendControl(pcId, 'unlock');
+    _lockedPCs.remove(pcId);
+    notifyListeners();
+  }
+
+  Future<void> shutdownPC(int pcId) => _sendControl(pcId, 'shutdown');
+
+  Future<void> restartPC(int pcId) => _sendControl(pcId, 'restart');
+
+  Future<void> sleepPC(int pcId) => _sendControl(pcId, 'sleep');
+
+  Future<void> messagePC(int pcId, String message) =>
+      _sendControl(pcId, 'message', payload: message);
+
+  /// Lock every online PC at once (e.g. closing time).
+  Future<void> lockAll() async {
+    for (final pc in onlinePCs) {
+      await _sendControl(pc.id, 'lock');
+      _lockedPCs.add(pc.id);
+    }
+    notifyListeners();
+  }
+
   Future<void> startSession(int pcId) async {
     final db = DatabaseHelper.instance;
 
@@ -144,6 +185,9 @@ class PCProvider extends ChangeNotifier {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     await db.createSession(pcId, now);
     setPendingCommand(pcId, 'start');
+    // A paid session frees the machine for the customer.
+    await _sendControl(pcId, 'unlock');
+    _lockedPCs.remove(pcId);
     _offlineDurations.remove(pcId);
 
     await refreshPCs();
@@ -185,6 +229,10 @@ class PCProvider extends ChangeNotifier {
     );
 
     setPendingCommand(pcId, 'stop');
+    // Lock the machine the moment the paid session ends so it can't be used
+    // for free until the owner starts the next session.
+    await _sendControl(pcId, 'lock');
+    _lockedPCs.add(pcId);
     _offlineDurations.remove(pcId);
 
     await refreshPCs();
