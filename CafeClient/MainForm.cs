@@ -11,10 +11,12 @@ namespace CafeClient
         private ContextMenuStrip _contextMenu = null!;
         private HeartbeatService? _heartbeatService;
         private CommandPoller? _commandPoller;
+        private ControlPoller? _controlPoller;
         private ConfigManager _configManager = null!;
         private System.Windows.Forms.Timer? _tooltipTimer;
         private bool _isSessionActive;
         private DateTime? _sessionStartTime;
+        private LockForm? _lockForm;
 
         public MainForm()
         {
@@ -143,6 +145,10 @@ namespace CafeClient
             _commandPoller.OnCommandReceived += OnCommandReceived;
             _commandPoller.Start();
 
+            _controlPoller = new ControlPoller(_configManager);
+            _controlPoller.OnControlReceived += OnControlReceived;
+            _controlPoller.Start();
+
             _tooltipTimer = new System.Windows.Forms.Timer { Interval = 1000 };
             _tooltipTimer.Tick += (_, _) =>
             {
@@ -173,6 +179,13 @@ namespace CafeClient
                 _commandPoller.Stop();
                 _commandPoller = null;
             }
+
+            if (_controlPoller != null)
+            {
+                _controlPoller.OnControlReceived -= OnControlReceived;
+                _controlPoller.Stop();
+                _controlPoller = null;
+            }
         }
 
         private void OnHeartbeatStatusChanged(object? sender, (bool connected, string message) e)
@@ -193,6 +206,70 @@ namespace CafeClient
             {
                 case "start": StartSession(); break;
                 case "stop": StopSession(); break;
+            }
+        }
+
+        // Control commands arrive on a background polling thread; marshal every
+        // action onto the UI thread before touching WinForms controls.
+        private void OnControlReceived(object? sender, (string command, string? payload) e)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => OnControlReceived(sender, e)));
+                return;
+            }
+
+            switch (e.command.ToLower())
+            {
+                case "lock": LockScreen(); break;
+                case "unlock": UnlockScreen(); break;
+                case "shutdown": PowerController.Shutdown(); break;
+                case "restart": PowerController.Restart(); break;
+                case "sleep": PowerController.Sleep(); break;
+                case "message": ShowRemoteMessage(e.payload); break;
+            }
+        }
+
+        private void LockScreen()
+        {
+            if (_lockForm != null && !_lockForm.IsDisposed)
+            {
+                _lockForm.Show();
+                _lockForm.BringToFront();
+                _lockForm.Activate();
+                return;
+            }
+
+            _lockForm = new LockForm($"PC-{_configManager.PCId}");
+            _lockForm.FormClosed += (_, _) => _lockForm = null;
+            _lockForm.Show();
+            _lockForm.BringToFront();
+            _lockForm.Activate();
+        }
+
+        private void UnlockScreen()
+        {
+            if (_lockForm != null && !_lockForm.IsDisposed)
+            {
+                _lockForm.AllowClose();
+                _lockForm.Close();
+                _lockForm = null;
+            }
+        }
+
+        private void ShowRemoteMessage(string? message)
+        {
+            if (string.IsNullOrWhiteSpace(message)) return;
+
+            // If the machine is locked, surface the message on the lock screen;
+            // otherwise show a balloon so the customer sees it in-session.
+            if (_lockForm != null && !_lockForm.IsDisposed)
+            {
+                _lockForm.SetMessage(message);
+            }
+            else
+            {
+                ShowBalloonTip("Message from front desk", message, ToolTipIcon.Info);
             }
         }
 
@@ -293,6 +370,12 @@ namespace CafeClient
         private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
         {
             StopServices();
+            if (_lockForm != null && !_lockForm.IsDisposed)
+            {
+                _lockForm.AllowClose();
+                _lockForm.Close();
+                _lockForm = null;
+            }
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
             _defaultIcon?.Dispose();

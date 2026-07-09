@@ -104,6 +104,7 @@ class _PCDetailScreenState extends State<PCDetailScreen> {
                     pc, duration, currentCost, sessionProvider, currency),
                 _buildSessionControls(pc, session, pcProvider, snackProvider,
                     settingsProvider),
+                _buildRemoteControls(pc, pcProvider),
                 _buildSnackOrdersSection(snackProvider, currency),
                 const SizedBox(height: 100),
               ],
