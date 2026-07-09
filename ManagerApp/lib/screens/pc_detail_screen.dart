@@ -104,6 +104,7 @@ class _PCDetailScreenState extends State<PCDetailScreen> {
                     pc, duration, currentCost, sessionProvider, currency),
                 _buildSessionControls(pc, session, pcProvider, snackProvider,
                     settingsProvider),
+                _buildRemoteControls(pc, pcProvider),
                 _buildSnackOrdersSection(snackProvider, currency),
                 const SizedBox(height: 100),
               ],
@@ -324,6 +325,174 @@ class _PCDetailScreenState extends State<PCDetailScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildRemoteControls(PC pc, PCProvider pcProvider) {
+    final locked = pcProvider.isLocked(pc.id);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'REMOTE CONTROL',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _controlChip(
+                icon: locked ? Icons.lock : Icons.lock_open,
+                label: locked ? 'Unlock' : 'Lock',
+                color: locked ? Colors.orange : Colors.blueGrey,
+                onTap: pc.isOnline
+                    ? () async {
+                        if (locked) {
+                          await pcProvider.unlockPC(pc.id);
+                        } else {
+                          await pcProvider.lockPC(pc.id);
+                        }
+                        _toast(locked ? 'Unlock sent' : 'Lock sent');
+                      }
+                    : null,
+              ),
+              _controlChip(
+                icon: Icons.message,
+                label: 'Message',
+                color: Colors.indigo,
+                onTap: pc.isOnline ? () => _promptMessage(pc, pcProvider) : null,
+              ),
+              _controlChip(
+                icon: Icons.bedtime,
+                label: 'Sleep',
+                color: Colors.teal,
+                onTap: pc.isOnline
+                    ? () => _confirmPower(pc, pcProvider, 'sleep')
+                    : null,
+              ),
+              _controlChip(
+                icon: Icons.restart_alt,
+                label: 'Restart',
+                color: Colors.amber.shade700,
+                onTap: pc.isOnline
+                    ? () => _confirmPower(pc, pcProvider, 'restart')
+                    : null,
+              ),
+              _controlChip(
+                icon: Icons.power_settings_new,
+                label: 'Shutdown',
+                color: Colors.red,
+                onTap: pc.isOnline
+                    ? () => _confirmPower(pc, pcProvider, 'shutdown')
+                    : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _controlChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    VoidCallback? onTap,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 14),
+      label: Text(label, style: const TextStyle(fontSize: 10)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      ),
+    );
+  }
+
+  void _toast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  Future<void> _promptMessage(PC pc, PCProvider pcProvider) async {
+    final controller = TextEditingController();
+    final message = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Message to ${pc.name}'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'e.g. 5 minutes left on your session',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+    if (message != null && message.isNotEmpty) {
+      await pcProvider.messagePC(pc.id, message);
+      _toast('Message sent to ${pc.name}');
+    }
+  }
+
+  Future<void> _confirmPower(
+      PC pc, PCProvider pcProvider, String action) async {
+    final label = action[0].toUpperCase() + action.substring(1);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('$label ${pc.name}?'),
+        content: Text('This will $action the computer immediately.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: action == 'shutdown' ? Colors.red : null,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(label),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      switch (action) {
+        case 'shutdown':
+          await pcProvider.shutdownPC(pc.id);
+          break;
+        case 'restart':
+          await pcProvider.restartPC(pc.id);
+          break;
+        case 'sleep':
+          await pcProvider.sleepPC(pc.id);
+          break;
+      }
+      _toast('$label command sent to ${pc.name}');
+    }
   }
 
   Widget _buildSnackOrdersSection(SnackProvider snackProvider, String currency) {
