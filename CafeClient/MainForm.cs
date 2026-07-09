@@ -227,6 +227,9 @@ namespace CafeClient
                 case "restart": PowerController.Restart(); break;
                 case "sleep": PowerController.Sleep(); break;
                 case "message": ShowRemoteMessage(e.payload); break;
+                case "maintenance": EnterMaintenanceMode(); break;
+                case "shutdown_timed": ScheduleTimedShutdown(e.payload); break;
+                case "cancel_shutdown": CancelScheduledShutdown(); break;
             }
         }
 
@@ -255,6 +258,42 @@ namespace CafeClient
                 _lockForm.Close();
                 _lockForm = null;
             }
+        }
+
+        /// <summary>
+        /// Locks the screen with a maintenance notice so the PC cannot be
+        /// used until the manager sends an unlock.
+        /// </summary>
+        private void EnterMaintenanceMode()
+        {
+            LockScreen();
+            if (_lockForm != null && !_lockForm.IsDisposed)
+            {
+                _lockForm.SetMessage("This PC is under maintenance.\nPlease ask staff for another machine.");
+            }
+        }
+
+        /// <summary>
+        /// Schedules a shutdown after the number of seconds in the payload
+        /// (default 60) and warns the customer so they can save their work.
+        /// </summary>
+        private void ScheduleTimedShutdown(string? payload)
+        {
+            var seconds = 60;
+            if (int.TryParse(payload, out var parsed) && parsed >= 10 && parsed <= 3600)
+                seconds = parsed;
+
+            PowerController.Shutdown(seconds);
+            ShowBalloonTip(
+                "Shutdown scheduled",
+                $"This PC will shut down in {seconds / 60}m {seconds % 60}s. Save your work now.",
+                ToolTipIcon.Warning);
+        }
+
+        private void CancelScheduledShutdown()
+        {
+            PowerController.AbortPendingPowerAction();
+            ShowBalloonTip("Shutdown cancelled", "The scheduled shutdown was cancelled.", ToolTipIcon.Info);
         }
 
         private void ShowRemoteMessage(string? message)

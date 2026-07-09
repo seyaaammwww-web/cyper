@@ -21,6 +21,10 @@ import 'statistics_screen.dart';
 import 'settings_screen.dart';
 import 'session_history_screen.dart';
 import 'onboarding_screen.dart';
+import 'customers_screen.dart';
+import 'reservations_screen.dart';
+import 'activity_log_screen.dart';
+import '../providers/reservation_provider.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -238,6 +242,37 @@ class _DashboardTab extends StatelessWidget {
       appBar: AppBar(
         title: Text(settings.cafeName),
         actions: [
+          Consumer<ReservationProvider>(
+            builder: (context, reservations, _) => IconButton(
+              tooltip: 'Reservations',
+              icon: Badge(
+                isLabelVisible: reservations.dueSoonCount > 0,
+                label: Text('${reservations.dueSoonCount}'),
+                backgroundColor: AppColors.danger,
+                child: const Icon(Icons.event_available),
+              ),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ReservationsScreen()),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Customers',
+            icon: const Icon(Icons.people_outline),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CustomersScreen()),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Activity log',
+            icon: const Icon(Icons.receipt_long),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ActivityLogScreen()),
+            ),
+          ),
           IconButton(
             tooltip: 'Lock all online PCs',
             icon: const Icon(Icons.lock_outline),

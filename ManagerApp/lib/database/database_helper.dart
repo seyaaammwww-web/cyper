@@ -2,12 +2,12 @@ import 'dart:math';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/cafe_settings.dart';
-import 'app_logger.dart';
+import '../services/app_logger.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
-  static const int _dbVersion = 5;
+  static const int _dbVersion = 6;
 
   DatabaseHelper._init();
 
@@ -52,6 +52,7 @@ class DatabaseHelper {
 
   Future<void> _createDB(Database db, int version) async {
     await _createTables(db);
+    await _createV6Tables(db);
     await _createIndexes(db);
     await _seedDefaults(db);
   }
@@ -131,6 +132,55 @@ class DatabaseHelper {
       await db.execute(
           'CREATE INDEX IF NOT EXISTS idx_control_pc ON control_commands(pc_id, id)');
     }
+    if (oldVersion < 6) {
+      await _createV6Tables(db);
+    }
+  }
+
+  Future<void> _createV6Tables(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS customers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT,
+        notes TEXT,
+        prepaid_balance REAL NOT NULL DEFAULT 0,
+        loyalty_points INTEGER NOT NULL DEFAULT 0,
+        total_spent REAL NOT NULL DEFAULT 0,
+        visit_count INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER DEFAULT (strftime('%s', 'now'))
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS reservations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pc_id INTEGER NOT NULL,
+        customer_id INTEGER,
+        customer_name TEXT NOT NULL,
+        start_at INTEGER NOT NULL,
+        duration_minutes INTEGER NOT NULL DEFAULT 60,
+        status TEXT NOT NULL DEFAULT 'upcoming',
+        notes TEXT,
+        created_at INTEGER DEFAULT (strftime('%s', 'now'))
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS activity_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pc_id INTEGER,
+        category TEXT NOT NULL DEFAULT 'control',
+        action TEXT NOT NULL,
+        detail TEXT,
+        created_at INTEGER DEFAULT (strftime('%s', 'now'))
+      )
+    ''');
+
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_reservations_start ON reservations(start_at, status)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_log(created_at DESC)');
   }
 
   Future<void> _createTables(Database db) async {
@@ -452,6 +502,8 @@ class DatabaseHelper {
     });
     await db.update('pcs', {'current_session_id': sessionId},
         where: 'id = ?', whereArgs: [pcId]);
+    await logActivity('Session started',
+        pcId: pcId, category: 'session', detail: 'Session #$sessionId');
     return sessionId;
   }
 
@@ -521,6 +573,12 @@ class DatabaseHelper {
 
       await _updateDailyStatistics(txn);
     });
+
+    await logActivity('Session ended',
+        pcId: pcId,
+        category: 'session',
+        detail:
+            'Session #$sessionId · ${(adjustedSeconds / 60).round()} min · ${cost.toStringAsFixed(2)}');
 
     return SessionEndResult(
       sessionId: sessionId,
@@ -888,6 +946,124 @@ class DatabaseHelper {
       ],
       orderBy: 'date ASC',
     );
+  }
+
+  // Customer Operations
+  Future<List<Map<String, dynamic>>> getAllCustomers() async {
+    final db = await database;
+    return await db.query('customers', orderBy: 'name ASC');
+  }
+
+  Future<int> insertCustomer(Map<String, dynamic> customer) async {
+    final db = await database;
+    return await db.insert('customers', customer);
+  }
+
+  Future<int> updateCustomer(int id, Map<String, dynamic> values) async {
+    final db = await database;
+    return await db
+        .update('customers', values, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteCustomer(int id) async {
+    final db = await database;
+    return await db.delete('customers', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> recordCustomerVisit(int id, double spent) async {
+    final db = await database;
+    await db.rawUpdate('''
+      UPDATE customers
+      SET total_spent = total_spent + ?,
+          visit_count = visit_count + 1,
+          loyalty_points = loyalty_points + CAST(? / 10 AS INTEGER)
+      WHERE id = ?
+    ''', [spent, spent, id]);
+  }
+
+  Future<void> adjustPrepaidBalance(int id, double delta) async {
+    final db = await database;
+    await db.rawUpdate(
+        'UPDATE customers SET prepaid_balance = MAX(0, prepaid_balance + ?) WHERE id = ?',
+        [delta, id]);
+  }
+
+  // Reservation Operations
+  Future<List<Map<String, dynamic>>> getReservations(
+      {bool upcomingOnly = false}) async {
+    final db = await database;
+    if (upcomingOnly) {
+      return await db.rawQuery('''
+        SELECT r.*, p.name as pc_name FROM reservations r
+        LEFT JOIN pcs p ON p.id = r.pc_id
+        WHERE r.status = 'upcoming'
+        ORDER BY r.start_at ASC
+      ''');
+    }
+    return await db.rawQuery('''
+      SELECT r.*, p.name as pc_name FROM reservations r
+      LEFT JOIN pcs p ON p.id = r.pc_id
+      ORDER BY r.start_at DESC
+      LIMIT 200
+    ''');
+  }
+
+  Future<int> insertReservation(Map<String, dynamic> reservation) async {
+    final db = await database;
+    return await db.insert('reservations', reservation);
+  }
+
+  Future<int> updateReservationStatus(int id, String status) async {
+    final db = await database;
+    return await db.update('reservations', {'status': status},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Reservations whose start time is within [windowMinutes] from now.
+  Future<List<Map<String, dynamic>>> getDueReservations(
+      {int windowMinutes = 15}) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    return await db.rawQuery('''
+      SELECT r.*, p.name as pc_name FROM reservations r
+      LEFT JOIN pcs p ON p.id = r.pc_id
+      WHERE r.status = 'upcoming' AND r.start_at <= ?
+      ORDER BY r.start_at ASC
+    ''', [now + windowMinutes * 60]);
+  }
+
+  // Activity Log Operations
+  Future<void> logActivity(String action,
+      {int? pcId, String category = 'control', String? detail}) async {
+    try {
+      final db = await database;
+      await db.insert('activity_log', {
+        'pc_id': pcId,
+        'category': category,
+        'action': action,
+        'detail': detail,
+      });
+    } catch (e) {
+      AppLogger.warn('Failed to log activity: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getActivityLog(
+      {int limit = 200, String? category}) async {
+    final db = await database;
+    if (category != null && category.isNotEmpty) {
+      return await db.rawQuery('''
+        SELECT a.*, p.name as pc_name FROM activity_log a
+        LEFT JOIN pcs p ON p.id = a.pc_id
+        WHERE a.category = ?
+        ORDER BY a.id DESC LIMIT ?
+      ''', [category, limit]);
+    }
+    return await db.rawQuery('''
+      SELECT a.*, p.name as pc_name FROM activity_log a
+      LEFT JOIN pcs p ON p.id = a.pc_id
+      ORDER BY a.id DESC LIMIT ?
+    ''', [limit]);
   }
 
   Future<void> close() async {

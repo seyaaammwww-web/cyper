@@ -392,11 +392,57 @@ class _PCDetailScreenState extends State<PCDetailScreen> {
                     ? () => _confirmPower(pc, pcProvider, 'shutdown')
                     : null,
               ),
+              _controlChip(
+                icon: Icons.timer_outlined,
+                label: 'Timed off',
+                color: Colors.deepOrange,
+                onTap: pc.isOnline
+                    ? () => _promptTimedShutdown(pc, pcProvider)
+                    : null,
+              ),
+              _controlChip(
+                icon: Icons.build_circle_outlined,
+                label: 'Maintenance',
+                color: Colors.brown,
+                onTap: pc.isOnline
+                    ? () async {
+                        await pcProvider.maintenancePC(pc.id);
+                        _toast('${pc.name} placed in maintenance mode');
+                      }
+                    : null,
+              ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _promptTimedShutdown(PC pc, PCProvider pcProvider) async {
+    final minutes = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('Shut down ${pc.name} in…'),
+        children: [1, 2, 5, 10, 15]
+            .map((m) => SimpleDialogOption(
+                  onPressed: () => Navigator.pop(ctx, m),
+                  child: Text('$m minute${m == 1 ? '' : 's'}'),
+                ))
+            .toList()
+          ..add(SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, -1),
+            child: const Text('Cancel pending shutdown'),
+          )),
+      ),
+    );
+    if (minutes == null) return;
+    if (minutes == -1) {
+      await pcProvider.cancelShutdownPC(pc.id);
+      _toast('Shutdown cancelled on ${pc.name}');
+    } else {
+      await pcProvider.timedShutdownPC(pc.id, minutes * 60);
+      _toast('${pc.name} will shut down in $minutes min (customer warned)');
+    }
   }
 
   Widget _controlChip({

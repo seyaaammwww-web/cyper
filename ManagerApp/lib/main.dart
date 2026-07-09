@@ -7,6 +7,8 @@ import 'providers/session_provider.dart';
 import 'providers/snack_provider.dart';
 import 'providers/statistics_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/customer_provider.dart';
+import 'providers/reservation_provider.dart';
 import 'services/system_health_service.dart';
 import 'services/notification_service.dart';
 import 'database/database_helper.dart';
@@ -39,6 +41,8 @@ class CyberCafeApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SessionProvider()),
         ChangeNotifierProvider(create: (_) => SnackProvider()),
         ChangeNotifierProvider(create: (_) => StatisticsProvider()),
+        ChangeNotifierProvider(create: (_) => CustomerProvider()),
+        ChangeNotifierProvider(create: (_) => ReservationProvider()),
       ],
       child: MaterialApp(
         title: 'Cyber Cafe Manager',

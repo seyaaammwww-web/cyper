@@ -379,7 +379,8 @@ class HttpServerService {
 
   /// Returns the next queued control command for a PC (FIFO, consumed on read).
   /// Response: {"command": "lock"|"unlock"|"shutdown"|"restart"|"sleep"|
-  ///            "message"|"none", "payload": "..."}
+  ///            "message"|"maintenance"|"shutdown_timed"|"cancel_shutdown"|
+  ///            "none", "payload": "..."}
   Future<shelf.Response> _handleControl(shelf.Request request) async {
     try {
       final pcId = int.tryParse(request.url.queryParameters['pc_id'] ?? '') ?? 0;

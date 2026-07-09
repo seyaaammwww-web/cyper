@@ -166,6 +166,29 @@ class PCProvider extends ChangeNotifier {
   Future<void> messagePC(int pcId, String message) =>
       _sendControl(pcId, 'message', payload: message);
 
+  /// Lock the PC with a maintenance notice until explicitly unlocked.
+  Future<void> maintenancePC(int pcId) async {
+    await _sendControl(pcId, 'maintenance');
+    _lockedPCs.add(pcId);
+    await DatabaseHelper.instance
+        .logActivity('Maintenance mode', pcId: pcId, category: 'control');
+    notifyListeners();
+  }
+
+  /// Schedule a shutdown after [seconds] with an on-screen warning.
+  Future<void> timedShutdownPC(int pcId, int seconds) async {
+    await _sendControl(pcId, 'shutdown_timed', payload: '$seconds');
+    await DatabaseHelper.instance.logActivity('Timed shutdown',
+        pcId: pcId, category: 'control', detail: '${seconds}s');
+  }
+
+  /// Cancel a previously scheduled shutdown.
+  Future<void> cancelShutdownPC(int pcId) async {
+    await _sendControl(pcId, 'cancel_shutdown');
+    await DatabaseHelper.instance
+        .logActivity('Shutdown cancelled', pcId: pcId, category: 'control');
+  }
+
   /// Lock every online PC at once (e.g. closing time).
   Future<void> lockAll() async {
     for (final pc in onlinePCs) {
