@@ -1,20 +1,22 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-background: #0b0d12;
-  --color-foreground: #e7e9ee;
-  --color-card: #12151d;
-  --color-card-foreground: #e7e9ee;
-  --color-border: #232836;
-  --color-muted: #1a1e29;
-  --color-muted-foreground: #8b93a7;
-  --color-primary: #6366f1;
-  --color-primary-foreground: #ffffff;
-  --color-success: #22c55e;
-  --color-success-foreground: #052e16;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
-  --color-warning: #f59e0b;
+  /* Dark ops-center palette: near-black base, cyan accent, status colors */
+  --color-background: #0a0d11;
+  --color-foreground: #e6eaf0;
+  --color-card: #10151b;
+  --color-card-foreground: #e6eaf0;
+  --color-border: #1f2731;
+  --color-muted: #171e26;
+  --color-muted-foreground: #8a95a5;
+  --color-primary: #22d3ee;
+  --color-primary-foreground: #052a33;
+  --color-success: #34d399;
+  --color-success-foreground: #04231a;
+  --color-destructive: #f87171;
+  --color-destructive-foreground: #2b0707;
+  --color-warning: #fbbf24;
+  --color-warning-foreground: #2b1d02;
 
   --font-sans: 'Geist', 'Geist Fallback', system-ui, sans-serif;
   --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
@@ -29,4 +31,8 @@ html {
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
+}
+
+::selection {
+  background-color: color-mix(in oklab, var(--color-primary) 30%, transparent);
 }
