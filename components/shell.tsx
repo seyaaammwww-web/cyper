@@ -55,11 +55,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
             alt="Kazoza Gaming Center logo"
             width={180}
             height={180}
-            className="w-full rounded-xl border border-primary/30 neon-ring"
+            className="w-full border border-border grayscale-[35%] transition-all hover:grayscale-0"
             priority
           />
-          <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-accent neon-text-cyan">
-            Ops Console
+          <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-primary">
+            // Command Console
           </span>
         </div>
 
@@ -72,10 +72,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+                className={`flex items-center gap-2.5 border-l-2 px-3 py-2 text-sm font-semibold uppercase tracking-wider transition-all ${
                   active
-                    ? 'bg-primary/15 text-primary neon-text'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground'
                 }`}
               >
                 <Icon className="size-4" aria-hidden="true" />
@@ -92,14 +92,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
         <div className="flex flex-col gap-2 border-t border-border p-4">
           {happy && (
-            <span className="flex items-center gap-1.5 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-warning">
-              <span className="size-1.5 rounded-full bg-warning" />
-              Happy hour active
+            <span className="flex items-center gap-1.5 border border-warning/40 bg-warning/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-warning">
+              <span className="size-1.5 bg-warning" />
+              XP boost // Happy hour
             </span>
           )}
-          <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-success">
-            <span className="size-1.5 animate-pulse rounded-full bg-success" />
-            Server running
+          <span className="flex items-center gap-1.5 border border-success/40 bg-success/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-success">
+            <span className="size-1.5 animate-pulse bg-success" />
+            Sys online
           </span>
         </div>
       </aside>
@@ -114,20 +114,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
               alt="Kazoza Gaming Center logo"
               width={36}
               height={36}
-              className="size-9 rounded-lg border border-primary/40 object-cover neon-ring"
+              className="size-9 border border-border object-cover grayscale-[35%]"
               priority
             />
             <div className="flex flex-col">
-              <span className="text-sm font-bold leading-tight text-primary neon-text">
+              <span className="text-sm font-bold uppercase leading-tight tracking-wider text-primary">
                 {state?.settings.cafeName ?? 'Kazoza'}
               </span>
-              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-accent">
-                Ops Console
+              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
+                // Command Console
               </span>
             </div>
           </div>
-          <span className="flex items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-success">
-            <span className="size-1.5 animate-pulse rounded-full bg-success" />
+          <span className="flex items-center gap-1.5 border border-success/40 bg-success/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-success">
+            <span className="size-1.5 animate-pulse bg-success" />
             Live
           </span>
         </header>
@@ -147,8 +147,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex flex-col items-center gap-0.5 rounded-lg px-2 py-1.5 text-[10px] font-medium ${
-                  active ? 'text-primary neon-text' : 'text-muted-foreground'
+                className={`relative flex flex-col items-center gap-0.5 border-t-2 px-2 py-1.5 text-[10px] font-medium ${
+                  active
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted-foreground'
                 }`}
               >
                 <Icon className="size-5" aria-hidden="true" />

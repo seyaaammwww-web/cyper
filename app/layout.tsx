@@ -3,11 +3,8 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Shell } from '@/components/shell'
 import './globals.css'
 
-const geistSans = Geist({ subsets: ['latin'], variable: '--font-geist-sans' })
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-geist-mono',
-})
+const _geistSans = Geist({ subsets: ['latin'] })
+const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Cyper Ops Console — Gaming Cafe Management',
@@ -16,7 +13,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0b0d12',
+  themeColor: '#0b0712',
 }
 
 export default function RootLayout({
@@ -25,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`bg-background ${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" className="bg-background">
       <body className="font-sans antialiased">
         <Shell>{children}</Shell>
       </body>

@@ -11,7 +11,7 @@ export function Card({
   className?: string
 }) {
   return (
-    <div className={`rounded-xl border border-border bg-card ${className}`}>
+    <div className={`glass rounded-xl border ${className}`}>
       {children}
     </div>
   )
@@ -133,7 +133,7 @@ export function Modal({
       }}
     >
       <div
-        className={`flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-card sm:rounded-2xl ${
+        className={`glass-deep flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-primary/25 sm:rounded-2xl ${
           wide ? 'sm:max-w-2xl' : 'sm:max-w-md'
         }`}
       >
@@ -155,7 +155,7 @@ export function Modal({
 }
 
 export const inputCls =
-  'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary'
+  'w-full rounded-lg border border-border bg-background/70 px-3 py-2 text-sm text-foreground outline-none backdrop-blur transition-colors placeholder:text-muted-foreground focus:border-primary'
 
 export function Field({
   label,

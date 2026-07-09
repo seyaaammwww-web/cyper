@@ -1,6 +1,6 @@
 'use client'
 
-import { Armchair, Cookie, Lock, WifiOff, Wrench } from 'lucide-react'
+import { Cookie, Crosshair, Lock, WifiOff, Wrench } from 'lucide-react'
 import type { Pc, Session, Settings } from '@/lib/types'
 import { formatDuration } from '@/lib/billing'
 import { liveCost, useNow } from './pc-tile'
@@ -10,34 +10,34 @@ type StatusFilter = 'all' | 'occupied' | 'available' | 'offline'
 function stationTone(pc: Pc) {
   if (pc.status === 'occupied')
     return {
-      frame: 'border-primary/80 animate-neon-pulse',
-      screen: 'bg-primary shadow-[0_0_10px_var(--color-primary)]',
-      text: 'text-primary',
-      label: 'In session',
-      cone: 'light-cone',
+      frame: 'border-accent/70 animate-neon-pulse',
+      dot: 'bg-accent',
+      text: 'text-accent',
+      label: 'Engaged',
+      blip: true,
     }
   if (pc.status === 'offline')
     return {
-      frame: 'border-destructive/50 animate-neon-flicker opacity-75',
-      screen: 'bg-muted',
+      frame: 'border-destructive/50 animate-neon-flicker opacity-70',
+      dot: 'bg-destructive',
       text: 'text-destructive',
-      label: 'Offline',
-      cone: null,
+      label: 'No signal',
+      blip: false,
     }
   if (pc.maintenance)
     return {
       frame: 'border-warning/60',
-      screen: 'bg-warning shadow-[0_0_8px_var(--color-warning)]',
+      dot: 'bg-warning',
       text: 'text-warning',
-      label: 'Maintenance',
-      cone: null,
+      label: 'Repair',
+      blip: false,
     }
   return {
-    frame: 'border-accent/50 hover:border-accent hover:neon-ring-cyan',
-    screen: 'bg-accent shadow-[0_0_8px_var(--color-accent)]',
-    text: 'text-accent',
-    label: 'Available',
-    cone: 'light-cone-cyan',
+    frame: 'border-border hover:border-primary/70 hover:neon-ring',
+    dot: 'bg-success',
+    text: 'text-success',
+    label: 'Ready',
+    blip: false,
   }
 }
 
@@ -47,7 +47,6 @@ function Station({
   settings,
   pendingOrders,
   dimmed,
-  side,
   onSelect,
 }: {
   pc: Pc
@@ -55,81 +54,11 @@ function Station({
   settings: Settings
   pendingOrders: number
   dimmed: boolean
-  side: 'left' | 'right'
   onSelect: () => void
 }) {
   const now = useNow()
   const tone = stationTone(pc)
   const live = session ? liveCost(pc, session, settings, now) : null
-
-  const desk = (
-    <div
-      className={`glass-station relative flex min-w-0 flex-1 flex-col gap-1 overflow-visible rounded-lg border p-2 transition-all ${tone.frame}`}
-    >
-      {/* Screen glow cone rising from the desk, like a lit monitor in a dark room */}
-      {tone.cone && (
-        <span
-          className={`pointer-events-none absolute -top-3 left-1/2 h-3 w-10 -translate-x-1/2 animate-cone-breathe ${tone.cone}`}
-          aria-hidden="true"
-        />
-      )}
-
-      <div className="flex items-center gap-1.5">
-        <span
-          className={`h-1.5 w-6 shrink-0 rounded-full ${tone.screen} ${
-            pc.status === 'occupied' ? 'animate-neon-flicker' : ''
-          }`}
-          aria-hidden="true"
-        />
-        <span className="truncate font-mono text-[11px] font-bold">{pc.name}</span>
-        <span className="ml-auto flex items-center gap-1">
-          {pendingOrders > 0 && (
-            <span className="flex items-center gap-0.5 rounded-full bg-warning px-1 font-mono text-[9px] font-bold text-warning-foreground">
-              <Cookie className="size-2.5" aria-hidden="true" />
-              {pendingOrders}
-            </span>
-          )}
-          {pc.maintenance && (
-            <Wrench className="size-3 text-warning" aria-hidden="true" />
-          )}
-          {pc.locked && (
-            <Lock className="size-3 text-muted-foreground" aria-hidden="true" />
-          )}
-          {pc.status === 'offline' && (
-            <WifiOff className="size-3 text-destructive" aria-hidden="true" />
-          )}
-        </span>
-      </div>
-
-      {live ? (
-        <div className="flex items-center justify-between gap-1">
-          <span className="font-mono text-[11px] font-bold text-primary tabular-nums neon-text">
-            {formatDuration(live.seconds)}
-          </span>
-          <span className="font-mono text-[10px] font-semibold text-foreground">
-            {live.cost.toFixed(2)}
-          </span>
-        </div>
-      ) : (
-        <span className={`font-mono text-[9px] uppercase tracking-wider ${tone.text}`}>
-          {tone.label}
-        </span>
-      )}
-    </div>
-  )
-
-  const chair = (
-    <span
-      className={`hidden size-6 shrink-0 items-center justify-center rounded-full border transition-colors min-[400px]:flex ${
-        pc.status === 'occupied'
-          ? 'border-primary/60 bg-primary/20 text-primary animate-float-slow'
-          : 'border-border bg-muted/70 text-muted-foreground'
-      }`}
-      aria-hidden="true"
-    >
-      <Armchair className="size-3.5" />
-    </span>
-  )
 
   return (
     <button
@@ -138,57 +67,95 @@ function Station({
       aria-label={`${pc.name}, ${tone.label}${pc.locked ? ', locked' : ''}${
         live ? `, ${formatDuration(live.seconds)} elapsed` : ''
       }`}
-      className={`flex w-full items-center gap-1.5 rounded-xl text-left transition-all duration-300 hover:scale-[1.03] ${
+      className={`group relative w-full text-left transition-all duration-200 hover:z-10 hover:scale-[1.02] ${
         dimmed ? 'opacity-25' : ''
       }`}
     >
-      {side === 'left' ? (
-        <>
-          {desk}
-          {chair}
-        </>
-      ) : (
-        <>
-          {chair}
-          {desk}
-        </>
-      )}
+      <div
+        className={`glass-deep relative flex flex-col gap-1 border p-2 transition-colors ${tone.frame}`}
+        style={{
+          clipPath:
+            'polygon(8px 0%, 100% 0%, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0% 100%, 0% 8px)',
+        }}
+      >
+        {tone.blip && <span className="blip-ring" aria-hidden="true" />}
+
+        {/* Crosshair appears on hover, like aiming at the station */}
+        <Crosshair
+          className="pointer-events-none absolute right-1 top-1 size-3 text-primary opacity-0 transition-opacity group-hover:opacity-80"
+          aria-hidden="true"
+        />
+
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`size-1.5 shrink-0 ${tone.dot} ${
+              pc.status === 'occupied' ? 'animate-pulse' : ''
+            }`}
+            aria-hidden="true"
+          />
+          <span className="truncate font-mono text-[11px] font-bold tracking-wider">
+            {pc.name}
+          </span>
+          <span className="ml-auto flex items-center gap-1">
+            {pendingOrders > 0 && (
+              <span className="flex items-center gap-0.5 bg-warning px-1 font-mono text-[9px] font-bold text-warning-foreground">
+                <Cookie className="size-2.5" aria-hidden="true" />
+                {pendingOrders}
+              </span>
+            )}
+            {pc.maintenance && (
+              <Wrench className="size-3 text-warning" aria-hidden="true" />
+            )}
+            {pc.locked && (
+              <Lock className="size-3 text-muted-foreground" aria-hidden="true" />
+            )}
+            {pc.status === 'offline' && (
+              <WifiOff className="size-3 text-destructive" aria-hidden="true" />
+            )}
+          </span>
+        </div>
+
+        {live ? (
+          <div className="flex items-center justify-between gap-1">
+            <span className="font-mono text-[11px] font-bold text-accent tabular-nums">
+              {formatDuration(live.seconds)}
+            </span>
+            <span className="font-mono text-[10px] font-semibold text-foreground tabular-nums">
+              {live.cost.toFixed(2)}
+            </span>
+          </div>
+        ) : (
+          <span
+            className={`font-mono text-[9px] uppercase tracking-[0.2em] ${tone.text}`}
+          >
+            [ {tone.label} ]
+          </span>
+        )}
+      </div>
     </button>
   )
 }
 
-/** Floating neon sparks drifting up through the scene, like dust in neon light. */
-function Sparks() {
-  const sparks = [
-    { left: '8%', delay: '0s', size: 3, color: 'var(--color-primary)' },
-    { left: '22%', delay: '2.2s', size: 2, color: 'var(--color-accent)' },
-    { left: '38%', delay: '5s', size: 2, color: 'var(--color-primary)' },
-    { left: '52%', delay: '1.4s', size: 3, color: 'var(--color-accent)' },
-    { left: '64%', delay: '6.5s', size: 2, color: 'var(--color-primary)' },
-    { left: '78%', delay: '3.6s', size: 3, color: 'var(--color-accent)' },
-    { left: '90%', delay: '7.8s', size: 2, color: 'var(--color-primary)' },
-  ]
+/** Small spinning radar in the map corner. */
+function Radar({ engaged, total }: { engaged: number; total: number }) {
   return (
-    <span
-      className="pointer-events-none absolute inset-0 overflow-hidden"
-      style={{ containerType: 'size' }}
+    <div
+      className="pointer-events-none absolute right-3 top-3 hidden size-16 items-center justify-center sm:flex"
       aria-hidden="true"
     >
-      {sparks.map((s, i) => (
-        <span
-          key={i}
-          className="absolute bottom-0 animate-spark-rise rounded-full"
-          style={{
-            left: s.left,
-            width: s.size,
-            height: s.size,
-            backgroundColor: s.color,
-            boxShadow: `0 0 6px ${s.color}`,
-            animationDelay: s.delay,
-          }}
-        />
-      ))}
-    </span>
+      <div className="relative size-full overflow-hidden rounded-full border border-primary/40 bg-background/70">
+        <span className="absolute inset-2 rounded-full border border-primary/20" />
+        <span className="absolute inset-5 rounded-full border border-primary/15" />
+        <span className="absolute left-1/2 top-0 h-full w-px bg-primary/15" />
+        <span className="absolute left-0 top-1/2 h-px w-full bg-primary/15" />
+        <div className="radar-cone" />
+        <span className="absolute left-[30%] top-[40%] size-1 rounded-full bg-accent" />
+        <span className="absolute left-[62%] top-[58%] size-1 rounded-full bg-success" />
+      </div>
+      <span className="absolute -bottom-4 font-mono text-[8px] uppercase tracking-widest text-primary">
+        {engaged}/{total} live
+      </span>
+    </div>
   )
 }
 
@@ -213,58 +180,46 @@ export function CafeMap({
   const rightRow = pcs.filter((p) => p.zone !== 'vip').sort(sortByName)
 
   const isDimmed = (pc: Pc) => filter !== 'all' && pc.status !== filter
-
+  const engaged = pcs.filter((p) => p.status === 'occupied').length
   const rows = Math.max(leftRow.length, rightRow.length)
 
   return (
     <section
-      aria-label="Cafe floor map"
-      className="relative overflow-hidden rounded-2xl border border-primary/30 neon-ring"
+      aria-label="Deployment map of cafe stations"
+      className="hud-brackets relative overflow-hidden border border-border bg-card/80 p-3 floor-grid sm:p-4"
     >
-      {/* Artwork backdrop: the cafe's own cyberpunk art, dimmed into atmosphere */}
-      <span className="scene-backdrop absolute inset-0" aria-hidden="true" />
-      {/* Drifting neon haze that slowly shifts hue */}
-      <span className="scene-haze absolute inset-0 animate-hue-drift" aria-hidden="true" />
-      {/* Perspective neon floor receding into the scene */}
-      <span
-        className="perspective-floor absolute inset-x-0 bottom-0 h-2/3 opacity-60"
-        aria-hidden="true"
-      />
-      {/* Rising light sparks */}
-      <Sparks />
-      {/* Soft moving scanline, like a CRT sweep across the room */}
-      <span
-        className="scanline-overlay pointer-events-none absolute inset-x-0 top-0 animate-scanline"
-        aria-hidden="true"
-      />
-      {/* Edge vignette to focus the eye */}
-      <span className="scene-vignette pointer-events-none absolute inset-0" aria-hidden="true" />
+      {/* Radar sweep line across the map */}
+      <div className="scan-sheen" aria-hidden="true" />
 
-      {/* Neon wall strips */}
-      <span
-        className="pointer-events-none absolute inset-y-4 left-0 w-0.5 rounded-full bg-primary/80 neon-ring"
-        aria-hidden="true"
-      />
-      <span
-        className="pointer-events-none absolute inset-y-4 right-0 w-0.5 rounded-full bg-accent/80 neon-ring-cyan"
-        aria-hidden="true"
-      />
+      {/* Corner radar */}
+      <Radar engaged={engaged} total={pcs.length} />
 
-      <div className="relative p-3 sm:p-4">
-        {/* Zone headers */}
-        <div className="mb-3 grid grid-cols-[1fr_2rem_1fr] items-center gap-1 sm:grid-cols-[1fr_3.5rem_1fr]">
-          <h2 className="text-center font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-primary neon-text">
-            VIP row
+      {/* Map header strip */}
+      <div className="relative mb-3 flex items-center gap-2 border-b border-border pb-2">
+        <span className="size-1.5 animate-pulse bg-primary" aria-hidden="true" />
+        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-primary">
+          Tac-Map // Floor 01
+        </span>
+        <span className="hidden font-mono text-[9px] uppercase tracking-widest text-muted-foreground min-[480px]:inline">
+          GRID N-{String(pcs.length).padStart(2, '0')}E
+        </span>
+      </div>
+
+      <div className="relative">
+        {/* Sector headers */}
+        <div className="mb-2 grid grid-cols-[1fr_2rem_1fr] items-center gap-1 sm:grid-cols-[1fr_3.5rem_1fr]">
+          <h2 className="text-center font-mono text-[10px] font-bold tracking-[0.25em] text-primary">
+            A // VIP
           </h2>
           <span aria-hidden="true" />
-          <h2 className="text-center font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-accent neon-text-cyan">
-            Premium row
+          <h2 className="text-center font-mono text-[10px] font-bold tracking-[0.25em] text-primary">
+            B // PREM
           </h2>
         </div>
 
         <div className="grid grid-cols-[1fr_2rem_1fr] gap-x-1 sm:grid-cols-[1fr_3.5rem_1fr] sm:gap-x-2">
-          {/* Left vertical row (VIP) */}
-          <div className="flex flex-col gap-2.5">
+          {/* Sector A (VIP) */}
+          <div className="flex flex-col gap-2">
             {leftRow.map((pc) => (
               <Station
                 key={pc.id}
@@ -273,36 +228,38 @@ export function CafeMap({
                 settings={settings}
                 pendingOrders={pendingFor(pc)}
                 dimmed={isDimmed(pc)}
-                side="left"
                 onSelect={() => onSelect(pc.id)}
               />
             ))}
           </div>
 
-          {/* Center aisle: flowing neon light carpet */}
+          {/* Center corridor: patrol route with moving chevrons */}
           <div
-            className="relative mx-auto w-3 self-stretch overflow-hidden rounded-full sm:w-4"
-            style={{ minHeight: `${rows * 3.5}rem` }}
+            className="relative mx-auto w-4 self-stretch overflow-hidden sm:w-5"
+            style={{ minHeight: `${rows * 3.25}rem` }}
             aria-hidden="true"
           >
+            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border" />
             <div
-              className="absolute inset-0 animate-aisle-flow rounded-full opacity-70"
+              className="absolute inset-0 animate-aisle-flow opacity-80"
               style={{
                 backgroundImage:
-                  'repeating-linear-gradient(180deg, transparent 0, transparent 16px, color-mix(in oklab, var(--color-primary) 55%, transparent) 16px, color-mix(in oklab, var(--color-accent) 55%, transparent) 32px, transparent 32px, transparent 48px)',
+                  'repeating-linear-gradient(180deg, transparent 0, transparent 18px, color-mix(in oklab, var(--color-primary) 60%, transparent) 18px, color-mix(in oklab, var(--color-primary) 60%, transparent) 24px, transparent 24px, transparent 48px)',
+                clipPath: 'polygon(50% 0%, 100% 40%, 50% 25%, 0% 40%)',
+                backgroundSize: '100% 48px',
               }}
             />
             <div
-              className="absolute inset-0 rounded-full"
+              className="absolute inset-0 animate-aisle-flow"
               style={{
-                boxShadow:
-                  'inset 0 0 8px color-mix(in oklab, var(--color-primary) 30%, transparent)',
+                backgroundImage:
+                  'repeating-linear-gradient(180deg, transparent 0, transparent 20px, color-mix(in oklab, var(--color-primary) 45%, transparent) 20px, color-mix(in oklab, var(--color-primary) 45%, transparent) 22px, transparent 22px, transparent 48px)',
               }}
             />
           </div>
 
-          {/* Right vertical row (Premium + others) */}
-          <div className="flex flex-col gap-2.5">
+          {/* Sector B (Premium + others) */}
+          <div className="flex flex-col gap-2">
             {rightRow.map((pc) => (
               <Station
                 key={pc.id}
@@ -311,19 +268,36 @@ export function CafeMap({
                 settings={settings}
                 pendingOrders={pendingFor(pc)}
                 dimmed={isDimmed(pc)}
-                side="right"
                 onSelect={() => onSelect(pc.id)}
               />
             ))}
           </div>
         </div>
 
-        {/* Entrance marker */}
-        <div className="mt-4 flex justify-center">
-          <span className="rounded-full border border-accent/50 bg-background/60 px-3 py-0.5 font-mono text-[9px] uppercase tracking-[0.3em] text-accent neon-text-cyan backdrop-blur-sm">
-            Entrance
+        {/* Extraction / entrance marker */}
+        <div className="mt-4 flex items-center justify-center gap-2">
+          <span className="h-px w-8 bg-primary/40" aria-hidden="true" />
+          <span className="border border-primary/50 bg-background/70 px-3 py-0.5 font-mono text-[9px] uppercase tracking-[0.3em] text-primary">
+            Entry point
           </span>
+          <span className="h-px w-8 bg-primary/40" aria-hidden="true" />
         </div>
+      </div>
+
+      {/* Status legend, killfeed-style */}
+      <div className="relative mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-2 font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="size-1.5 bg-success" aria-hidden="true" /> Ready
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-1.5 bg-accent" aria-hidden="true" /> Engaged
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-1.5 bg-warning" aria-hidden="true" /> Repair
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="size-1.5 bg-destructive" aria-hidden="true" /> No signal
+        </span>
       </div>
     </section>
   )
