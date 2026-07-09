@@ -1,0 +1,35 @@
+name: cyber_cafe_manager
+description: Cyber Cafe Management System - Mobile Control Application
+publish_to: 'none'
+version: 1.2.0+4
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  shelf: ^1.4.0
+  shelf_router: ^1.1.3
+  sqflite: ^2.3.0
+  path_provider: ^2.1.1
+  flutter_local_notifications: ^17.0.0
+  network_info_plus: ^4.1.0
+  provider: ^6.1.1
+  http: ^1.1.0
+  intl: ^0.18.1
+  shared_preferences: ^2.2.2
+  connectivity_plus: ^5.0.2
+  google_fonts: ^6.1.0
+  fl_chart: ^0.66.0
+  wakelock_plus: ^1.2.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  sqflite_common_ffi: ^2.3.0
+
+flutter:
+  uses-material-design: true
