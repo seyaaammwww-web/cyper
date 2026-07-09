@@ -67,6 +67,7 @@ class CafeSettings {
     String? billingRounding,
     double? taxPercent,
     String? manualServerIp,
+    bool clearManualServerIp = false,
     bool? onboardingComplete,
     bool? strictSnackOrders,
   }) {
@@ -80,7 +81,8 @@ class CafeSettings {
           minimumSessionMinutes ?? this.minimumSessionMinutes,
       billingRounding: billingRounding ?? this.billingRounding,
       taxPercent: taxPercent ?? this.taxPercent,
-      manualServerIp: manualServerIp ?? this.manualServerIp,
+      manualServerIp:
+          clearManualServerIp ? null : (manualServerIp ?? this.manualServerIp),
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       strictSnackOrders: strictSnackOrders ?? this.strictSnackOrders,
     );

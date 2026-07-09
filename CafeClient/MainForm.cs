@@ -67,13 +67,25 @@ namespace CafeClient
             _notifyIcon.DoubleClick += OnNotifyIconDoubleClick;
         }
 
-        private Icon CreateIcon() => CreateStatusIcon(Color.FromArgb(99, 102, 241));
+        // Icons are cached to avoid leaking GDI handles (GetHicon allocates
+        // an unmanaged handle on every call, which would exhaust GDI objects
+        // during 24/7 operation as status changes repeatedly).
+        private Icon? _defaultIcon;
+        private Icon? _connectedIcon;
+        private Icon? _disconnectedIcon;
+        private Icon? _activeSessionIcon;
 
-        private Icon CreateConnectedIcon() => CreateStatusIcon(Color.FromArgb(34, 197, 94));
+        private Icon CreateIcon() =>
+            _defaultIcon ??= CreateStatusIcon(Color.FromArgb(99, 102, 241));
 
-        private Icon CreateDisconnectedIcon() => CreateStatusIcon(Color.FromArgb(239, 68, 68));
+        private Icon CreateConnectedIcon() =>
+            _connectedIcon ??= CreateStatusIcon(Color.FromArgb(34, 197, 94));
 
-        private Icon CreateActiveSessionIcon() => CreateStatusIcon(Color.FromArgb(34, 197, 94), true);
+        private Icon CreateDisconnectedIcon() =>
+            _disconnectedIcon ??= CreateStatusIcon(Color.FromArgb(239, 68, 68));
+
+        private Icon CreateActiveSessionIcon() =>
+            _activeSessionIcon ??= CreateStatusIcon(Color.FromArgb(34, 197, 94), true);
 
         private Icon CreateStatusIcon(Color color, bool active = false)
         {
@@ -119,6 +131,10 @@ namespace CafeClient
 
         private async Task StartServicesAsync()
         {
+            // Stop any previously running services so re-configuring from
+            // Settings never leaves duplicate heartbeat/poller loops running.
+            StopServices();
+
             _heartbeatService = new HeartbeatService(_configManager);
             _heartbeatService.OnStatusChanged += OnHeartbeatStatusChanged;
             await _heartbeatService.StartAsync();
@@ -136,6 +152,27 @@ namespace CafeClient
             _tooltipTimer.Start();
 
             ShowBalloonTip("Connected", $"Connected as PC-{_configManager.PCId}", ToolTipIcon.Info);
+        }
+
+        private void StopServices()
+        {
+            _tooltipTimer?.Stop();
+            _tooltipTimer?.Dispose();
+            _tooltipTimer = null;
+
+            if (_heartbeatService != null)
+            {
+                _heartbeatService.OnStatusChanged -= OnHeartbeatStatusChanged;
+                _heartbeatService.Stop();
+                _heartbeatService = null;
+            }
+
+            if (_commandPoller != null)
+            {
+                _commandPoller.OnCommandReceived -= OnCommandReceived;
+                _commandPoller.Stop();
+                _commandPoller = null;
+            }
         }
 
         private void OnHeartbeatStatusChanged(object? sender, (bool connected, string message) e)
@@ -255,12 +292,13 @@ namespace CafeClient
 
         private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
         {
-            _tooltipTimer?.Stop();
-            _tooltipTimer?.Dispose();
-            _heartbeatService?.Stop();
-            _commandPoller?.Stop();
+            StopServices();
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
+            _defaultIcon?.Dispose();
+            _connectedIcon?.Dispose();
+            _disconnectedIcon?.Dispose();
+            _activeSessionIcon?.Dispose();
         }
     }
 }

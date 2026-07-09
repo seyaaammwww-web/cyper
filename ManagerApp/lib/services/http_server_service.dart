@@ -30,6 +30,7 @@ class HttpServerService {
   final Map<int, int> _lastThumbnailWrite = {};
   static const int _thumbnailMinIntervalSec = 10;
   final _orderLimiter = RateLimiter(maxRequests: 30, window: const Duration(minutes: 1));
+  final _heartbeatLimiter = RateLimiter(maxRequests: 120, window: const Duration(minutes: 1));
   final _repo = CafeRepository.instance;
 
   PCProvider? _pcProvider;

@@ -8,7 +8,7 @@ import 'providers/snack_provider.dart';
 import 'providers/statistics_provider.dart';
 import 'providers/settings_provider.dart';
 import 'services/system_health_service.dart';
-import 'services/server_guard_service.dart';
+import 'services/notification_service.dart';
 import 'database/database_helper.dart';
 import 'theme/app_theme.dart';
 import 'screens/dashboard_screen.dart';

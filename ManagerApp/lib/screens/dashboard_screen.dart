@@ -9,6 +9,7 @@ import '../providers/session_provider.dart';
 import '../providers/snack_provider.dart';
 import '../providers/statistics_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/http_server_service.dart';
 import '../services/server_guard_service.dart';
 import '../widgets/status_header.dart';
 import '../widgets/animated_pc_tile.dart';
@@ -80,6 +81,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _initServer() async {
+    if (!mounted) return;
     final settings = context.read<SettingsProvider>().settings;
     final info = NetworkInfo();
     final wifiIP = await info.getWifiIP();

@@ -40,7 +40,14 @@ namespace CafeClient
         public void Stop()
         {
             _cancellationToken.Cancel();
-            _heartbeatTask?.Wait(TimeSpan.FromSeconds(5));
+            try
+            {
+                _heartbeatTask?.Wait(TimeSpan.FromSeconds(5));
+            }
+            catch (AggregateException)
+            {
+                // Expected: task cancelled during shutdown
+            }
             _httpClient.Dispose();
         }
 

@@ -30,7 +30,14 @@ namespace CafeClient
         public void Stop()
         {
             _cancellationToken.Cancel();
-            _pollerTask?.Wait(TimeSpan.FromSeconds(5));
+            try
+            {
+                _pollerTask?.Wait(TimeSpan.FromSeconds(5));
+            }
+            catch (AggregateException)
+            {
+                // Expected: task cancelled during shutdown
+            }
             _httpClient.Dispose();
         }
 
