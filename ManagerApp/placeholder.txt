@@ -1,0 +1,17 @@
+# Cyber Cafe Manager Assets
+
+This directory contains image assets for the Cyber Cafe Manager application.
+
+## Required Assets
+
+Add the following images:
+- app_logo.png - Application logo
+- vip_badge.png - VIP section badge
+- premium_badge.png - Premium section badge
+- no_screenshot.png - Placeholder when no screenshot available
+
+## Recommended Sizes
+
+- Logo: 512x512 pixels
+- Badges: 64x64 pixels
+- Placeholders: 320x180 pixels
