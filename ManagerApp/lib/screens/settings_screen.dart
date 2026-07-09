@@ -64,6 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       manualServerIp: _manualIpCtrl.text.trim().isEmpty
           ? null
           : _manualIpCtrl.text.trim(),
+      clearManualServerIp: _manualIpCtrl.text.trim().isEmpty,
       serverPort: int.tryParse(_portCtrl.text) ?? 8080,
       offlineGraceSeconds: int.tryParse(_graceCtrl.text) ?? 300,
       minimumSessionMinutes: int.tryParse(_minSessionCtrl.text) ?? 0,
