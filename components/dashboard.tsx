@@ -5,7 +5,8 @@ import { Lock, Plus } from 'lucide-react'
 import type { Pc } from '@/lib/types'
 import { useConsoleState, withRefresh } from '@/lib/use-cafe'
 import { addPc, lockAllPcs } from '@/app/actions/cafe'
-import { liveCost, PcTile, useNow } from './pc-tile'
+import { liveCost, useNow } from './pc-tile'
+import { CafeMap } from './cafe-map'
 import { PcDetail } from './pc-detail'
 import {
   Btn,
@@ -17,8 +18,6 @@ import {
   StatCard,
   inputCls,
 } from './ui-bits'
-
-const ZONE_ORDER = ['vip', 'premium', 'standard'] as const
 
 export function Dashboard() {
   const { state, isLoading, error } = useConsoleState()
@@ -77,17 +76,6 @@ export function Dashboard() {
       </div>
     )
   }
-
-  const filteredPcs = state.pcs.filter((p) =>
-    filter === 'all' ? true : p.status === filter,
-  )
-  const byZone = ZONE_ORDER.map((zone) => ({
-    zone,
-    pcs: filteredPcs.filter((p) => p.zone === zone),
-  })).filter((g) => g.pcs.length > 0)
-  const otherPcs = filteredPcs.filter(
-    (p) => !ZONE_ORDER.includes(p.zone as (typeof ZONE_ORDER)[number]),
-  )
 
   const sessionFor = (pc: Pc) =>
     state.activeSessions.find((s) => s.pcId === pc.id) ?? null
@@ -163,49 +151,17 @@ export function Dashboard() {
         ))}
       </div>
 
-      {byZone.length === 0 && otherPcs.length === 0 ? (
-        <EmptyState message="No PCs match this filter." />
+      {state.pcs.length === 0 ? (
+        <EmptyState message="No PCs yet. Add your first PC to see it on the floor map." />
       ) : (
-        <>
-          {byZone.map(({ zone, pcs }) => (
-            <section key={zone} className="flex flex-col gap-2.5">
-              <h2 className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                {zone} zone
-              </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {pcs.map((pc) => (
-                  <PcTile
-                    key={pc.id}
-                    pc={pc}
-                    session={sessionFor(pc)}
-                    settings={state.settings}
-                    pendingOrders={pendingFor(pc)}
-                    onSelect={() => setSelectedId(pc.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-          {otherPcs.length > 0 && (
-            <section className="flex flex-col gap-2.5">
-              <h2 className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Other
-              </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {otherPcs.map((pc) => (
-                  <PcTile
-                    key={pc.id}
-                    pc={pc}
-                    session={sessionFor(pc)}
-                    settings={state.settings}
-                    pendingOrders={pendingFor(pc)}
-                    onSelect={() => setSelectedId(pc.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-        </>
+        <CafeMap
+          pcs={state.pcs}
+          sessionFor={sessionFor}
+          pendingFor={pendingFor}
+          settings={state.settings}
+          filter={filter}
+          onSelect={(id) => setSelectedId(id)}
+        />
       )}
 
       {selectedPc && (

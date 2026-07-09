@@ -43,7 +43,7 @@ type ButtonVariant = 'primary' | 'outline' | 'ghost' | 'destructive' | 'success'
 
 const BUTTON_STYLES: Record<ButtonVariant, string> = {
   primary:
-    'bg-primary text-primary-foreground hover:bg-primary/90 border-transparent',
+    'bg-primary text-primary-foreground hover:bg-primary/90 border-transparent neon-ring',
   outline:
     'border-border bg-transparent text-foreground hover:bg-muted',
   ghost:
