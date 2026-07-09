@@ -1,87 +1,138 @@
 'use client'
 
-import { Monitor, Wifi, WifiOff } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Lock, Monitor, Wrench } from 'lucide-react'
+import type { Pc, Session, Settings } from '@/lib/types'
 import {
-  formatDuration,
-  formatMoney,
+  applyDiscount,
   computeBillableSeconds,
   computeTimeCost,
-  type Pc,
-} from '@/lib/demo-data'
-import { useCafe } from '@/lib/store'
+  formatDuration,
+} from '@/lib/billing'
 
-export function PcTile({ pc, onSelect }: { pc: Pc; onSelect: (pc: Pc) => void }) {
-  const { sessions, settings } = useCafe()
-  const session = sessions.find((s) => s.pcId === pc.id && s.status === 'active')
+export function useNow(intervalMs = 1000) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), intervalMs)
+    return () => clearInterval(t)
+  }, [intervalMs])
+  return now
+}
 
-  const rawSeconds = session
-    ? Math.floor((Date.now() - session.startTime) / 1000)
-    : 0
-  const runningCost = session
-    ? computeTimeCost(
-        computeBillableSeconds(rawSeconds, session.offlineSeconds, settings),
-        pc.hourlyRate,
-        settings,
-      )
-    : 0
+export function liveCost(
+  pc: Pc,
+  session: Session,
+  settings: Settings,
+  now: number,
+): { seconds: number; cost: number } {
+  const raw = Math.max(0, Math.floor((now - session.startTime) / 1000))
+  const billable = computeBillableSeconds(raw, session.offlineSeconds, settings)
+  const gross = computeTimeCost(billable, pc.hourlyRate, settings)
+  return { seconds: raw, cost: applyDiscount(gross, session.discountPercent) }
+}
 
-  const statusStyles = {
-    available: 'border-border bg-card hover:border-primary/60',
-    occupied: 'border-success/40 bg-success/5 hover:border-success',
-    offline: 'border-destructive/40 bg-destructive/5 hover:border-destructive',
-  }[pc.status]
+export function PcTile({
+  pc,
+  session,
+  settings,
+  pendingOrders,
+  onSelect,
+}: {
+  pc: Pc
+  session: Session | null
+  settings: Settings
+  pendingOrders: number
+  onSelect: () => void
+}) {
+  const now = useNow()
 
-  const dotColor = {
-    available: 'bg-muted-foreground',
-    occupied: 'bg-success',
-    offline: 'bg-destructive',
-  }[pc.status]
+  const statusStyles =
+    pc.status === 'occupied'
+      ? 'border-primary/40 bg-primary/5 hover:border-primary'
+      : pc.status === 'offline'
+        ? 'border-destructive/30 bg-destructive/5 opacity-75 hover:border-destructive/60'
+        : pc.maintenance
+          ? 'border-warning/40 bg-warning/5 hover:border-warning'
+          : 'border-border bg-card hover:border-success/60'
+
+  const dotColor =
+    pc.status === 'occupied'
+      ? 'bg-primary'
+      : pc.status === 'offline'
+        ? 'bg-destructive'
+        : pc.maintenance
+          ? 'bg-warning'
+          : 'bg-success'
+
+  const statusLabel =
+    pc.status === 'occupied'
+      ? 'In session'
+      : pc.status === 'offline'
+        ? 'Offline'
+        : pc.maintenance
+          ? 'Maintenance'
+          : 'Available'
+
+  const live = session ? liveCost(pc, session, settings, now) : null
 
   return (
     <button
       type="button"
-      onClick={() => onSelect(pc)}
-      className={`group flex flex-col gap-3 rounded-xl border p-4 text-left transition-colors ${statusStyles}`}
-      aria-label={`${pc.name}, ${pc.status}`}
+      onClick={onSelect}
+      className={`relative flex flex-col gap-2 rounded-xl border p-3.5 text-left transition-colors ${statusStyles}`}
+      aria-label={`${pc.name}, ${statusLabel}${pc.locked ? ', locked' : ''}`}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Monitor className="size-5 text-muted-foreground" aria-hidden="true" />
-          <span className="font-mono text-sm font-semibold">{pc.name}</span>
+      <div className="flex items-center justify-between gap-1">
+        <div className="flex items-center gap-1.5">
+          <Monitor
+            className={`size-4 ${pc.status === 'occupied' ? 'text-primary' : 'text-muted-foreground'}`}
+            aria-hidden="true"
+          />
+          <span className="font-mono text-sm font-bold">{pc.name}</span>
         </div>
-        <span className="flex items-center gap-1.5">
-          <span className={`size-2 rounded-full ${dotColor} ${pc.status === 'occupied' ? 'animate-pulse' : ''}`} />
-          {pc.status === 'offline' ? (
-            <WifiOff className="size-3.5 text-destructive" aria-hidden="true" />
-          ) : (
-            <Wifi className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        <div className="flex items-center gap-1">
+          {pc.maintenance && (
+            <Wrench className="size-3.5 text-warning" aria-hidden="true" />
           )}
+          {pc.locked && (
+            <Lock className="size-3.5 text-muted-foreground" aria-hidden="true" />
+          )}
+          <span
+            className={`size-2 rounded-full ${dotColor} ${pc.status === 'occupied' ? 'animate-pulse' : ''}`}
+            aria-hidden="true"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-1">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          {pc.zone}
+        </span>
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {pc.hourlyRate.toFixed(0)} {settings.currency}/h
         </span>
       </div>
 
-      {session ? (
-        <div className="flex flex-col gap-1">
-          <span className="font-mono text-xl font-bold text-success tabular-nums">
-            {formatDuration(rawSeconds)}
+      {live ? (
+        <div className="flex items-end justify-between gap-1 border-t border-border/60 pt-2">
+          <span className="font-mono text-sm font-bold text-primary tabular-nums">
+            {formatDuration(live.seconds)}
           </span>
-          <span className="font-mono text-xs text-muted-foreground">
-            {formatMoney(runningCost, settings.currency)} · {pc.hourlyRate}/hr
+          <span className="font-mono text-xs font-semibold">
+            {live.cost.toFixed(2)}
           </span>
         </div>
       ) : (
-        <div className="flex flex-col gap-1">
-          <span className="text-sm text-muted-foreground">
-            {pc.status === 'offline' ? 'No heartbeat' : 'Ready'}
-          </span>
-          <span className="font-mono text-xs text-muted-foreground">
-            {pc.hourlyRate} {settings.currency}/hr
-          </span>
+        <div className="flex items-center justify-between gap-1 border-t border-border/60 pt-2">
+          <span className="text-xs text-muted-foreground">{statusLabel}</span>
         </div>
       )}
 
-      <span className="font-mono text-[10px] text-muted-foreground/70">
-        {pc.ipAddress}
-      </span>
+      {pendingOrders > 0 && (
+        <span className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-warning font-mono text-[10px] font-bold text-warning-foreground">
+          {pendingOrders}
+        </span>
+      )}
     </button>
   )
 }

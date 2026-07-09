@@ -2,217 +2,416 @@
 
 import { useState } from 'react'
 import {
+  Cookie,
   Lock,
   LockOpen,
   MessageSquare,
-  Moon,
   Play,
   Power,
-  Receipt,
   RotateCcw,
-  ShoppingCart,
-  X,
+  Square,
+  Wifi,
+  Wrench,
 } from 'lucide-react'
+import type {
+  CheckoutResult,
+  ConsoleState,
+  Pc,
+} from '@/lib/types'
+import { formatDuration, formatMoney, isHappyHour } from '@/lib/billing'
+import { liveCost, useNow } from './pc-tile'
+import { Badge, Btn, Field, Modal, inputCls } from './ui-bits'
+import { withRefresh } from '@/lib/use-cafe'
 import {
-  SNACK_MENU,
-  computeBillableSeconds,
-  computeTimeCost,
-  formatDuration,
-  formatMoney,
-  type Pc,
-} from '@/lib/demo-data'
-import { useCafe } from '@/lib/store'
+  addOrder,
+  endSession,
+  messagePc,
+  powerPc,
+  setPcLock,
+  setPcMaintenance,
+  startSession,
+  togglePcOnline,
+} from '@/app/actions/cafe'
 
-interface CheckoutResult {
-  timeCost: number
-  snackCost: number
-  total: number
-  seconds: number
-}
+export function PcDetail({
+  pc,
+  state,
+  onClose,
+}: {
+  pc: Pc
+  state: ConsoleState
+  onClose: () => void
+}) {
+  const now = useNow()
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  const [snackId, setSnackId] = useState<number | ''>('')
+  const [qty, setQty] = useState(1)
+  const [customerId, setCustomerId] = useState<number | ''>('')
+  const [receipt, setReceipt] = useState<CheckoutResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-export function PcDetail({ pc, onClose }: { pc: Pc; onClose: () => void }) {
-  const {
-    sessions,
-    orders,
-    settings,
-    startSession,
-    endSession,
-    addOrder,
-    togglePcOnline,
-    isLocked,
-    lockPc,
-    unlockPc,
-    powerPc,
-    messagePc,
-  } = useCafe()
-  const [checkout, setCheckout] = useState<CheckoutResult | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
-
-  const locked = isLocked(pc.id)
-
-  function flash(message: string) {
-    setToast(message)
-    window.setTimeout(() => setToast(null), 2200)
-  }
-
-  function handleMessage() {
-    const message = window.prompt(`Send a message to ${pc.name}:`)
-    if (message && message.trim()) {
-      messagePc(pc.id, message.trim())
-      flash(`Message sent to ${pc.name}`)
-    }
-  }
-
-  function handlePower(action: 'shutdown' | 'restart' | 'sleep') {
-    const ok = window.confirm(`${action[0].toUpperCase() + action.slice(1)} ${pc.name}?`)
-    if (ok) {
-      powerPc(pc.id, action)
-      flash(`${action} command sent to ${pc.name}`)
-    }
-  }
-
-  const session = sessions.find((s) => s.pcId === pc.id && s.status === 'active')
+  const { settings, customers, snacks } = state
+  const session =
+    state.activeSessions.find((s) => s.pcId === pc.id) ?? null
   const sessionOrders = session
-    ? orders.filter((o) => o.sessionId === session.id && o.status !== 'cancelled')
+    ? state.orders.filter(
+        (o) => o.sessionId === session.id && o.status !== 'cancelled',
+      )
     : []
-  const snackTotal = sessionOrders.reduce((sum, o) => sum + o.quantity * o.unitPrice, 0)
+  const live = session ? liveCost(pc, session, settings, now) : null
+  const snackTotal = sessionOrders.reduce(
+    (sum, o) => sum + o.quantity * o.unitPrice,
+    0,
+  )
+  const customer = session?.customerId
+    ? customers.find((c) => c.id === session.customerId)
+    : null
+  const happy = isHappyHour(settings)
 
-  const rawSeconds = session ? Math.floor((Date.now() - session.startTime) / 1000) : 0
-  const billable = session
-    ? computeBillableSeconds(rawSeconds, session.offlineSeconds, settings)
-    : 0
-  const liveCost = session ? computeTimeCost(billable, pc.hourlyRate, settings) : 0
+  async function run(fn: () => Promise<unknown>) {
+    setBusy(true)
+    setError(null)
+    try {
+      await withRefresh(fn)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Action failed')
+    } finally {
+      setBusy(false)
+    }
+  }
 
-  function handleEnd() {
-    const result = endSession(pc.id)
-    if (result) setCheckout(result)
+  async function handleCheckout() {
+    setBusy(true)
+    setError(null)
+    try {
+      const result = await withRefresh(() => endSession(pc.id))
+      if (result) setReceipt(result)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Checkout failed')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${pc.name} details`}
-      onClick={onClose}
-    >
-      <div
-        className="flex w-full max-w-md flex-col gap-5 rounded-xl border border-border bg-card p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="font-mono text-lg font-bold">{pc.name}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Close"
+    <Modal open onClose={onClose} title={`${pc.name} — ${pc.zone.toUpperCase()}`} wide>
+      <div className="flex flex-col gap-5">
+        {/* Status row */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            tone={
+              pc.status === 'occupied'
+                ? 'primary'
+                : pc.status === 'offline'
+                  ? 'destructive'
+                  : 'success'
+            }
           >
-            <X className="size-5" />
-          </button>
+            {pc.status}
+          </Badge>
+          {pc.locked && <Badge tone="muted">Locked</Badge>}
+          {pc.maintenance && <Badge tone="warning">Maintenance</Badge>}
+          {happy && session && session.discountPercent > 0 && (
+            <Badge tone="warning">Happy hour -{session.discountPercent}%</Badge>
+          )}
+          <span className="ml-auto font-mono text-xs text-muted-foreground">
+            {pc.ipAddress} · {pc.hourlyRate.toFixed(0)} {settings.currency}/h
+          </span>
         </div>
 
-        {checkout ? (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-success">
-              <Receipt className="size-5" aria-hidden="true" />
-              <span className="font-semibold">Session complete — Receipt</span>
-            </div>
-            <dl className="flex flex-col gap-2 rounded-lg bg-muted p-4 font-mono text-sm">
+        {error && (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
+        {/* Receipt view after checkout */}
+        {receipt ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-success/30 bg-success/5 p-4">
+            <h3 className="text-sm font-bold text-success">Session complete</h3>
+            <dl className="flex flex-col gap-1.5 text-sm">
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Billed time</dt>
-                <dd>{formatDuration(checkout.seconds)}</dd>
+                <dt className="text-muted-foreground">Billable time</dt>
+                <dd className="font-mono">{formatDuration(receipt.seconds)}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Time cost</dt>
-                <dd>{formatMoney(checkout.timeCost, settings.currency)}</dd>
+                <dd className="font-mono">
+                  {formatMoney(receipt.timeCost, settings.currency)}
+                </dd>
               </div>
+              {receipt.discount > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Discount</dt>
+                  <dd className="font-mono text-warning">
+                    -{formatMoney(receipt.discount, settings.currency)}
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Snacks</dt>
-                <dd>{formatMoney(checkout.snackCost, settings.currency)}</dd>
+                <dd className="font-mono">
+                  {formatMoney(receipt.snackCost, settings.currency)}
+                </dd>
               </div>
-              <div className="flex justify-between border-t border-border pt-2 text-base font-bold">
+              <div className="flex justify-between border-t border-border pt-1.5 text-base font-bold">
                 <dt>Total</dt>
-                <dd className="text-success">{formatMoney(checkout.total, settings.currency)}</dd>
+                <dd className="font-mono text-success">
+                  {formatMoney(receipt.total, settings.currency)}
+                </dd>
               </div>
+              {receipt.loyaltyEarned > 0 && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">Loyalty earned</dt>
+                  <dd className="font-mono text-primary">
+                    +{receipt.loyaltyEarned} pts
+                  </dd>
+                </div>
+              )}
             </dl>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg bg-primary px-4 py-2.5 font-semibold text-primary-foreground hover:bg-primary/90"
-            >
+            <Btn variant="primary" onClick={onClose}>
               Done
-            </button>
+            </Btn>
           </div>
-        ) : session ? (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col items-center gap-1 rounded-lg bg-muted p-4">
-              <span className="font-mono text-3xl font-bold text-success tabular-nums">
-                {formatDuration(rawSeconds)}
-              </span>
-              <span className="font-mono text-sm text-muted-foreground">
-                Live cost: {formatMoney(liveCost, settings.currency)}
-                {snackTotal > 0 && ` + ${formatMoney(snackTotal, settings.currency)} snacks`}
-              </span>
+        ) : session && live ? (
+          <>
+            {/* Active session */}
+            <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <div className="flex items-end justify-between gap-2">
+                <div className="flex flex-col">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Session time
+                  </span>
+                  <span className="font-mono text-3xl font-bold text-primary tabular-nums">
+                    {formatDuration(live.seconds)}
+                  </span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Running total
+                  </span>
+                  <span className="font-mono text-2xl font-bold tabular-nums">
+                    {formatMoney(live.cost + snackTotal, settings.currency)}
+                  </span>
+                </div>
+              </div>
+              {customer && (
+                <p className="text-sm text-muted-foreground">
+                  Customer: <span className="font-medium text-foreground">{customer.name}</span>
+                  {' · '}
+                  {customer.loyaltyPoints} pts
+                </p>
+              )}
+              {sessionOrders.length > 0 && (
+                <ul className="flex flex-col gap-1 border-t border-border/60 pt-2 text-sm">
+                  {sessionOrders.map((o) => (
+                    <li key={o.id} className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {o.quantity}x {o.itemName}
+                      </span>
+                      <span className="font-mono">
+                        {formatMoney(o.quantity * o.unitPrice, settings.currency)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Btn
+                variant="destructive"
+                disabled={busy}
+                onClick={handleCheckout}
+              >
+                <Square className="size-4" aria-hidden="true" />
+                End session &amp; checkout
+              </Btn>
             </div>
 
+            {/* Add snack order */}
             <div className="flex flex-col gap-2">
-              <span className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                <ShoppingCart className="size-4" aria-hidden="true" />
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Add snack order
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                {SNACK_MENU.map((item) => (
-                  <button
-                    key={item.name}
-                    type="button"
-                    onClick={() => addOrder(pc.id, item.name, 1, item.price)}
-                    className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2 text-sm hover:border-primary/60"
-                  >
-                    <span>{item.name}</span>
-                    <span className="font-mono text-xs text-muted-foreground">{item.price}</span>
-                  </button>
-                ))}
+              </h3>
+              <div className="flex gap-2">
+                <select
+                  className={inputCls}
+                  value={snackId}
+                  onChange={(e) =>
+                    setSnackId(e.target.value ? Number(e.target.value) : '')
+                  }
+                  aria-label="Select snack"
+                >
+                  <option value="">Select item…</option>
+                  {snacks
+                    .filter((s) => s.active && s.stock > 0)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} — {s.price.toFixed(2)} ({s.stock} left)
+                      </option>
+                    ))}
+                </select>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={qty}
+                  onChange={(e) => setQty(Math.max(1, Number(e.target.value)))}
+                  className={`${inputCls} w-20`}
+                  aria-label="Quantity"
+                />
+                <Btn
+                  variant="primary"
+                  disabled={busy || snackId === ''}
+                  onClick={() =>
+                    run(async () => {
+                      await addOrder(pc.id, snackId as number, qty)
+                      setSnackId('')
+                      setQty(1)
+                    })
+                  }
+                >
+                  <Cookie className="size-4" aria-hidden="true" />
+                  Add
+                </Btn>
               </div>
             </div>
-
-            <button
-              type="button"
-              onClick={handleEnd}
-              className="rounded-lg bg-destructive px-4 py-2.5 font-semibold text-destructive-foreground hover:bg-destructive/90"
-            >
-              End session &amp; checkout
-            </button>
-          </div>
+          </>
         ) : (
-          <div className="flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground">
-              {pc.status === 'offline'
-                ? 'This PC is offline (no heartbeat received). In the real system the client app sends a heartbeat every 30 seconds.'
-                : `Ready to start a session at ${pc.hourlyRate} ${settings.currency}/hour.`}
-            </p>
-            {pc.status === 'available' && (
-              <button
-                type="button"
-                onClick={() => startSession(pc.id)}
-                className="flex items-center justify-center gap-2 rounded-lg bg-success px-4 py-2.5 font-semibold text-success-foreground hover:bg-success/90"
-              >
-                <Play className="size-4" aria-hidden="true" />
-                Start session
-              </button>
+          /* Idle: start session */
+          <div className="flex flex-col gap-3 rounded-xl border border-border p-4">
+            <h3 className="text-sm font-bold">Start a session</h3>
+            {happy && (
+              <p className="text-xs text-warning">
+                Happy hour is active — {settings.happyHourDiscountPercent}% off
+                will be applied automatically.
+              </p>
             )}
-            {(pc.status === 'offline' || pc.status === 'available') && (
-              <button
-                type="button"
-                onClick={() => togglePcOnline(pc.id)}
-                className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-muted"
+            <Field label="Customer (optional)">
+              <select
+                className={inputCls}
+                value={customerId}
+                onChange={(e) =>
+                  setCustomerId(e.target.value ? Number(e.target.value) : '')
+                }
               >
-                Simulate {pc.status === 'offline' ? 'reconnect' : 'going offline'}
-              </button>
+                <option value="">Walk-in</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.loyaltyPoints} pts)
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Btn
+              variant="success"
+              disabled={busy || pc.status !== 'available' || pc.maintenance}
+              onClick={() =>
+                run(() =>
+                  startSession(pc.id, customerId === '' ? null : customerId),
+                )
+              }
+            >
+              <Play className="size-4" aria-hidden="true" />
+              Start session
+            </Btn>
+            {pc.maintenance && (
+              <p className="text-xs text-warning">
+                This PC is in maintenance mode. Disable it below to start sessions.
+              </p>
             )}
           </div>
         )}
+
+        {/* Remote controls */}
+        {!receipt && (
+          <div className="flex flex-col gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Remote controls
+            </h3>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <Btn
+                size="sm"
+                disabled={busy || pc.status === 'offline'}
+                onClick={() => run(() => setPcLock(pc.id, !pc.locked))}
+              >
+                {pc.locked ? (
+                  <LockOpen className="size-3.5" aria-hidden="true" />
+                ) : (
+                  <Lock className="size-3.5" aria-hidden="true" />
+                )}
+                {pc.locked ? 'Unlock' : 'Lock'}
+              </Btn>
+              <Btn
+                size="sm"
+                disabled={busy || pc.status === 'occupied'}
+                onClick={() => run(() => powerPc(pc.id, 'shutdown'))}
+              >
+                <Power className="size-3.5" aria-hidden="true" />
+                Shutdown
+              </Btn>
+              <Btn
+                size="sm"
+                disabled={busy || pc.status === 'offline'}
+                onClick={() => run(() => powerPc(pc.id, 'restart'))}
+              >
+                <RotateCcw className="size-3.5" aria-hidden="true" />
+                Restart
+              </Btn>
+              <Btn
+                size="sm"
+                disabled={busy || pc.status === 'occupied'}
+                onClick={() => run(() => togglePcOnline(pc.id))}
+              >
+                <Wifi className="size-3.5" aria-hidden="true" />
+                {pc.status === 'offline' ? 'Wake' : 'Set offline'}
+              </Btn>
+              <Btn
+                size="sm"
+                disabled={busy}
+                onClick={() => run(() => setPcMaintenance(pc.id, !pc.maintenance))}
+              >
+                <Wrench className="size-3.5" aria-hidden="true" />
+                {pc.maintenance ? 'End maint.' : 'Maintenance'}
+              </Btn>
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Send message to this PC…"
+                className={inputCls}
+                aria-label="Message to PC"
+                onKeyDown={(e) => {
+                  if (
+                    e.key === 'Enter' &&
+                    !e.nativeEvent.isComposing &&
+                    e.keyCode !== 229 &&
+                    message.trim()
+                  ) {
+                    run(async () => {
+                      await messagePc(pc.id, message.trim())
+                      setMessage('')
+                    })
+                  }
+                }}
+              />
+              <Btn
+                size="sm"
+                disabled={busy || !message.trim()}
+                onClick={() =>
+                  run(async () => {
+                    await messagePc(pc.id, message.trim())
+                    setMessage('')
+                  })
+                }
+              >
+                <MessageSquare className="size-3.5" aria-hidden="true" />
+                Send
+              </Btn>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   )
 }
