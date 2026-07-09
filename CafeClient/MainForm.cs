@@ -11,10 +11,12 @@ namespace CafeClient
         private ContextMenuStrip _contextMenu = null!;
         private HeartbeatService? _heartbeatService;
         private CommandPoller? _commandPoller;
+        private ControlPoller? _controlPoller;
         private ConfigManager _configManager = null!;
         private System.Windows.Forms.Timer? _tooltipTimer;
         private bool _isSessionActive;
         private DateTime? _sessionStartTime;
+        private LockForm? _lockForm;
 
         public MainForm()
         {
@@ -67,13 +69,25 @@ namespace CafeClient
             _notifyIcon.DoubleClick += OnNotifyIconDoubleClick;
         }
 
-        private Icon CreateIcon() => CreateStatusIcon(Color.FromArgb(99, 102, 241));
+        // Icons are cached to avoid leaking GDI handles (GetHicon allocates
+        // an unmanaged handle on every call, which would exhaust GDI objects
+        // during 24/7 operation as status changes repeatedly).
+        private Icon? _defaultIcon;
+        private Icon? _connectedIcon;
+        private Icon? _disconnectedIcon;
+        private Icon? _activeSessionIcon;
 
-        private Icon CreateConnectedIcon() => CreateStatusIcon(Color.FromArgb(34, 197, 94));
+        private Icon CreateIcon() =>
+            _defaultIcon ??= CreateStatusIcon(Color.FromArgb(99, 102, 241));
 
-        private Icon CreateDisconnectedIcon() => CreateStatusIcon(Color.FromArgb(239, 68, 68));
+        private Icon CreateConnectedIcon() =>
+            _connectedIcon ??= CreateStatusIcon(Color.FromArgb(34, 197, 94));
 
-        private Icon CreateActiveSessionIcon() => CreateStatusIcon(Color.FromArgb(34, 197, 94), true);
+        private Icon CreateDisconnectedIcon() =>
+            _disconnectedIcon ??= CreateStatusIcon(Color.FromArgb(239, 68, 68));
+
+        private Icon CreateActiveSessionIcon() =>
+            _activeSessionIcon ??= CreateStatusIcon(Color.FromArgb(34, 197, 94), true);
 
         private Icon CreateStatusIcon(Color color, bool active = false)
         {
@@ -119,6 +133,10 @@ namespace CafeClient
 
         private async Task StartServicesAsync()
         {
+            // Stop any previously running services so re-configuring from
+            // Settings never leaves duplicate heartbeat/poller loops running.
+            StopServices();
+
             _heartbeatService = new HeartbeatService(_configManager);
             _heartbeatService.OnStatusChanged += OnHeartbeatStatusChanged;
             await _heartbeatService.StartAsync();
@@ -126,6 +144,10 @@ namespace CafeClient
             _commandPoller = new CommandPoller(_configManager);
             _commandPoller.OnCommandReceived += OnCommandReceived;
             _commandPoller.Start();
+
+            _controlPoller = new ControlPoller(_configManager);
+            _controlPoller.OnControlReceived += OnControlReceived;
+            _controlPoller.Start();
 
             _tooltipTimer = new System.Windows.Forms.Timer { Interval = 1000 };
             _tooltipTimer.Tick += (_, _) =>
@@ -136,6 +158,34 @@ namespace CafeClient
             _tooltipTimer.Start();
 
             ShowBalloonTip("Connected", $"Connected as PC-{_configManager.PCId}", ToolTipIcon.Info);
+        }
+
+        private void StopServices()
+        {
+            _tooltipTimer?.Stop();
+            _tooltipTimer?.Dispose();
+            _tooltipTimer = null;
+
+            if (_heartbeatService != null)
+            {
+                _heartbeatService.OnStatusChanged -= OnHeartbeatStatusChanged;
+                _heartbeatService.Stop();
+                _heartbeatService = null;
+            }
+
+            if (_commandPoller != null)
+            {
+                _commandPoller.OnCommandReceived -= OnCommandReceived;
+                _commandPoller.Stop();
+                _commandPoller = null;
+            }
+
+            if (_controlPoller != null)
+            {
+                _controlPoller.OnControlReceived -= OnControlReceived;
+                _controlPoller.Stop();
+                _controlPoller = null;
+            }
         }
 
         private void OnHeartbeatStatusChanged(object? sender, (bool connected, string message) e)
@@ -156,6 +206,70 @@ namespace CafeClient
             {
                 case "start": StartSession(); break;
                 case "stop": StopSession(); break;
+            }
+        }
+
+        // Control commands arrive on a background polling thread; marshal every
+        // action onto the UI thread before touching WinForms controls.
+        private void OnControlReceived(object? sender, (string command, string? payload) e)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => OnControlReceived(sender, e)));
+                return;
+            }
+
+            switch (e.command.ToLower())
+            {
+                case "lock": LockScreen(); break;
+                case "unlock": UnlockScreen(); break;
+                case "shutdown": PowerController.Shutdown(); break;
+                case "restart": PowerController.Restart(); break;
+                case "sleep": PowerController.Sleep(); break;
+                case "message": ShowRemoteMessage(e.payload); break;
+            }
+        }
+
+        private void LockScreen()
+        {
+            if (_lockForm != null && !_lockForm.IsDisposed)
+            {
+                _lockForm.Show();
+                _lockForm.BringToFront();
+                _lockForm.Activate();
+                return;
+            }
+
+            _lockForm = new LockForm($"PC-{_configManager.PCId}");
+            _lockForm.FormClosed += (_, _) => _lockForm = null;
+            _lockForm.Show();
+            _lockForm.BringToFront();
+            _lockForm.Activate();
+        }
+
+        private void UnlockScreen()
+        {
+            if (_lockForm != null && !_lockForm.IsDisposed)
+            {
+                _lockForm.AllowClose();
+                _lockForm.Close();
+                _lockForm = null;
+            }
+        }
+
+        private void ShowRemoteMessage(string? message)
+        {
+            if (string.IsNullOrWhiteSpace(message)) return;
+
+            // If the machine is locked, surface the message on the lock screen;
+            // otherwise show a balloon so the customer sees it in-session.
+            if (_lockForm != null && !_lockForm.IsDisposed)
+            {
+                _lockForm.SetMessage(message);
+            }
+            else
+            {
+                ShowBalloonTip("Message from front desk", message, ToolTipIcon.Info);
             }
         }
 
@@ -255,12 +369,19 @@ namespace CafeClient
 
         private void MainForm_FormClosing(object? sender, FormClosingEventArgs e)
         {
-            _tooltipTimer?.Stop();
-            _tooltipTimer?.Dispose();
-            _heartbeatService?.Stop();
-            _commandPoller?.Stop();
+            StopServices();
+            if (_lockForm != null && !_lockForm.IsDisposed)
+            {
+                _lockForm.AllowClose();
+                _lockForm.Close();
+                _lockForm = null;
+            }
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
+            _defaultIcon?.Dispose();
+            _connectedIcon?.Dispose();
+            _disconnectedIcon?.Dispose();
+            _activeSessionIcon?.Dispose();
         }
     }
 }
