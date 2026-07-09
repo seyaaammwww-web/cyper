@@ -7,7 +7,7 @@ import 'app_logger.dart';
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
-  static const int _dbVersion = 4;
+  static const int _dbVersion = 5;
 
   DatabaseHelper._init();
 
@@ -118,6 +118,19 @@ class DatabaseHelper {
       await _createIndexes(db);
       await repairDataIntegrity(db);
     }
+    if (oldVersion < 5) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS control_commands (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          pc_id INTEGER NOT NULL,
+          command TEXT NOT NULL,
+          payload TEXT,
+          created_at INTEGER NOT NULL
+        )
+      ''');
+      await db.execute(
+          'CREATE INDEX IF NOT EXISTS idx_control_pc ON control_commands(pc_id, id)');
+    }
   }
 
   Future<void> _createTables(Database db) async {
@@ -142,6 +155,16 @@ class DatabaseHelper {
     CREATE TABLE pending_commands (
       pc_id INTEGER PRIMARY KEY,
       command TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )
+    ''');
+
+    await db.execute('''
+    CREATE TABLE control_commands (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pc_id INTEGER NOT NULL,
+      command TEXT NOT NULL,
+      payload TEXT,
       created_at INTEGER NOT NULL
     )
     ''');
@@ -713,6 +736,54 @@ class DatabaseHelper {
       await clearPendingCommand(pcId);
     }
     return command;
+  }
+
+  // Control command queue (FIFO, consumed on delivery). Used for transient
+  // remote actions like lock/unlock/shutdown/restart/sleep/message that are
+  // separate from the persistent session start/stop command.
+  Future<void> queueControlCommand(
+    int pcId,
+    String command, {
+    String? payload,
+  }) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await db.insert('control_commands', {
+      'pc_id': pcId,
+      'command': command,
+      'payload': payload,
+      'created_at': now,
+    });
+  }
+
+  /// Returns and removes the oldest queued control command for [pcId], or null.
+  Future<Map<String, dynamic>?> dequeueControlCommand(int pcId) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final rows = await txn.query(
+        'control_commands',
+        where: 'pc_id = ?',
+        whereArgs: [pcId],
+        orderBy: 'id ASC',
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      final row = rows.first;
+      await txn.delete(
+        'control_commands',
+        where: 'id = ?',
+        whereArgs: [row['id']],
+      );
+      return {
+        'command': row['command'] as String,
+        'payload': row['payload'] as String?,
+      };
+    });
+  }
+
+  Future<void> clearControlCommands(int pcId) async {
+    final db = await database;
+    await db.delete('control_commands', where: 'pc_id = ?', whereArgs: [pcId]);
   }
 
   // Statistics
