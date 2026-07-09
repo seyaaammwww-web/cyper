@@ -146,9 +146,31 @@ class EndSessionBody(BaseModel):
     pc_id: int
 
 
+def load_token():
+    """Keep the API token stable across restarts.
+
+    If CAFE_API_TOKEN is set, it wins and is synced to the database.
+    Otherwise reuse the token already stored in the database so a restart
+    never invalidates tokens that clients were configured with.
+    """
+    global API_TOKEN
+    env_token = os.environ.get("CAFE_API_TOKEN")
+    with get_db() as db:
+        row = db.execute("SELECT api_token FROM settings WHERE id=1").fetchone()
+        if env_token:
+            API_TOKEN = env_token
+            if row and row["api_token"] != env_token:
+                db.execute(
+                    "UPDATE settings SET api_token=? WHERE id=1", (env_token,)
+                )
+        elif row and row["api_token"]:
+            API_TOKEN = row["api_token"]
+
+
 @app.on_event("startup")
 def startup():
     init_db()
+    load_token()
 
 
 @app.get("/health")
@@ -280,6 +302,82 @@ def order(body: OrderBody, authorization: Optional[str] = Header(None)):
             "status": "ordered",
             "order_id": oid,
             "total_price": snack["price"] * body.quantity,
+        }
+
+
+def _round_up(seconds: int, interval: int) -> int:
+    if seconds <= 0:
+        return 0
+    return ((seconds + interval - 1) // interval) * interval
+
+
+@app.post("/end_session")
+def end_session(body: EndSessionBody, authorization: Optional[str] = Header(None)):
+    verify_token(authorization)
+    with get_db() as db:
+        session = db.execute(
+            "SELECT * FROM sessions WHERE pc_id=? AND status='active'",
+            (body.pc_id,),
+        ).fetchone()
+        if not session:
+            raise HTTPException(404, "No active session")
+
+        pc = db.execute(
+            "SELECT * FROM pcs WHERE id=?", (body.pc_id,)
+        ).fetchone()
+        if not pc:
+            raise HTTPException(404, "PC not found")
+
+        settings = db.execute("SELECT * FROM settings WHERE id=1").fetchone()
+        grace = settings["offline_grace_seconds"] if settings else 300
+        minimum_minutes = settings["minimum_session_minutes"] if settings else 0
+        rounding = settings["billing_rounding"] if settings else "none"
+        tax_percent = settings["tax_percent"] if settings else 0
+
+        now = int(time.time())
+        raw_duration = max(0, now - session["start_time"])
+        offline = session["offline_duration"] or 0
+        billable = raw_duration + max(0, offline - grace)
+
+        adjusted = billable
+        minimum = (minimum_minutes or 0) * 60
+        if minimum > 0 and 0 < adjusted < minimum:
+            adjusted = minimum
+        if rounding == "5min":
+            adjusted = _round_up(adjusted, 300)
+        elif rounding == "15min":
+            adjusted = _round_up(adjusted, 900)
+
+        cost = (adjusted / 3600) * (pc["hourly_rate"] or 0)
+        if tax_percent and tax_percent > 0:
+            cost *= 1 + tax_percent / 100
+
+        db.execute(
+            """UPDATE sessions SET end_time=?, duration_seconds=?, time_cost=?,
+               status='completed' WHERE id=?""",
+            (now, adjusted, cost, session["id"]),
+        )
+        db.execute(
+            "UPDATE pcs SET current_session_id=NULL WHERE id=?",
+            (body.pc_id,),
+        )
+
+        snack_row = db.execute(
+            """SELECT COALESCE(SUM(total_price), 0) AS total FROM snack_orders
+               WHERE session_id=? AND status != 'cancelled'""",
+            (session["id"],),
+        ).fetchone()
+        snack_cost = snack_row["total"] if snack_row else 0
+
+        return {
+            "status": "success",
+            "message": "Session ended",
+            "billing": {
+                "time_cost": cost,
+                "snack_cost": snack_cost,
+                "grand_total": cost + snack_cost,
+                "duration_seconds": adjusted,
+            },
         }
 
 
