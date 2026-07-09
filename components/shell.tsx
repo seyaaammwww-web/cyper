@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { Splash } from './splash'
 import {
   Activity,
   BarChart3,
@@ -44,21 +44,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-dvh w-full">
+      <Splash />
+
       {/* Fixed artwork backdrop behind everything */}
       <div className="art-backdrop" aria-hidden="true" />
 
       {/* Desktop sidebar */}
       <aside className="glass-deep sticky top-0 hidden h-dvh w-56 flex-col border-r border-border md:flex">
-        <div className="flex flex-col items-center gap-2 border-b border-border px-4 py-4">
-          <Image
-            src="/images/kazoza-logo.jpg"
-            alt="Kazoza Gaming Center logo"
-            width={180}
-            height={180}
-            className="clip-plate w-full border border-border grayscale-[45%] transition-all hover:grayscale-0"
-            priority
-          />
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.25em] text-primary">
+        <div className="hud-brackets mx-3 my-4 flex flex-col items-center gap-1 px-4 py-4">
+          <span className="text-xl font-bold uppercase leading-none tracking-[0.14em] text-foreground">
+            Kazoza
+          </span>
+          <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.4em] text-primary">
+            Gaming Center
+          </span>
+          <span className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
             [ COMMAND CONSOLE ]
           </span>
         </div>
@@ -108,23 +108,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile header */}
         <header className="glass sticky top-0 z-40 flex items-center justify-between border-b px-4 py-2.5 md:hidden">
-          <div className="flex items-center gap-2.5">
-            <Image
-              src="/images/kazoza-logo.jpg"
-              alt="Kazoza Gaming Center logo"
-              width={36}
-              height={36}
-              className="size-9 border border-border object-cover grayscale-[35%]"
-              priority
-            />
-            <div className="flex flex-col">
-              <span className="text-sm font-bold uppercase leading-tight tracking-wider text-primary">
-                {state?.settings.cafeName ?? 'Kazoza'}
-              </span>
-              <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
-                [ COMMAND CONSOLE ]
-              </span>
-            </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold uppercase leading-tight tracking-[0.14em] text-foreground">
+              {state?.settings.cafeName ?? 'Kazoza'}
+            </span>
+            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.3em] text-primary">
+              [ COMMAND CONSOLE ]
+            </span>
           </div>
           <span className="flex items-center gap-1.5 border border-success/40 bg-success/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-success">
             <span className="size-1.5 animate-pulse bg-success" />
