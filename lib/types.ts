@@ -11,6 +11,8 @@ export interface Pc {
   status: PcStatus
   locked: boolean
   maintenance: boolean
+  mapCol: 'a' | 'b'
+  slotIndex: number
   lastHeartbeat: number
 }
 

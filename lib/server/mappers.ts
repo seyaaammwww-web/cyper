@@ -37,6 +37,8 @@ export function mapPc(row: typeof pcs.$inferSelect): Pc {
     status: row.status as Pc['status'],
     locked: row.locked,
     maintenance: row.maintenance,
+    mapCol: row.mapCol === 'b' ? 'b' : 'a',
+    slotIndex: row.slotIndex,
     lastHeartbeat: ms(row.lastHeartbeat),
   }
 }

@@ -19,6 +19,8 @@ export const pcs = pgTable('pcs', {
   status: text('status').notNull().default('available'),
   locked: boolean('locked').notNull().default(false),
   maintenance: boolean('maintenance').notNull().default(false),
+  mapCol: text('mapCol').notNull().default('a'),
+  slotIndex: integer('slotIndex').notNull().default(0),
   lastHeartbeat: timestamp('lastHeartbeat', { withTimezone: true })
     .notNull()
     .defaultNow(),
