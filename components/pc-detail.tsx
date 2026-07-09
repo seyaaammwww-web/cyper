@@ -1,7 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Play, Receipt, ShoppingCart, X } from 'lucide-react'
+import {
+  Lock,
+  LockOpen,
+  MessageSquare,
+  Moon,
+  Play,
+  Power,
+  Receipt,
+  RotateCcw,
+  ShoppingCart,
+  X,
+} from 'lucide-react'
 import {
   SNACK_MENU,
   computeBillableSeconds,
@@ -20,8 +31,45 @@ interface CheckoutResult {
 }
 
 export function PcDetail({ pc, onClose }: { pc: Pc; onClose: () => void }) {
-  const { sessions, orders, settings, startSession, endSession, addOrder, togglePcOnline } = useCafe()
+  const {
+    sessions,
+    orders,
+    settings,
+    startSession,
+    endSession,
+    addOrder,
+    togglePcOnline,
+    isLocked,
+    lockPc,
+    unlockPc,
+    powerPc,
+    messagePc,
+  } = useCafe()
   const [checkout, setCheckout] = useState<CheckoutResult | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  const locked = isLocked(pc.id)
+
+  function flash(message: string) {
+    setToast(message)
+    window.setTimeout(() => setToast(null), 2200)
+  }
+
+  function handleMessage() {
+    const message = window.prompt(`Send a message to ${pc.name}:`)
+    if (message && message.trim()) {
+      messagePc(pc.id, message.trim())
+      flash(`Message sent to ${pc.name}`)
+    }
+  }
+
+  function handlePower(action: 'shutdown' | 'restart' | 'sleep') {
+    const ok = window.confirm(`${action[0].toUpperCase() + action.slice(1)} ${pc.name}?`)
+    if (ok) {
+      powerPc(pc.id, action)
+      flash(`${action} command sent to ${pc.name}`)
+    }
+  }
 
   const session = sessions.find((s) => s.pcId === pc.id && s.status === 'active')
   const sessionOrders = session

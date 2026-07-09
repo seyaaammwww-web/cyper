@@ -21,17 +21,33 @@ import {
   type SnackOrder,
 } from './demo-data'
 
+export interface ControlEvent {
+  id: number
+  pcId: number
+  action: string
+  detail?: string
+  at: number
+}
+
 interface CafeState {
   pcs: Pc[]
   sessions: Session[]
   orders: SnackOrder[]
   settings: Settings
   tick: number
+  lockedPcs: number[]
+  controlLog: ControlEvent[]
   startSession: (pcId: number) => void
   endSession: (pcId: number) => { timeCost: number; snackCost: number; total: number; seconds: number } | null
   addOrder: (pcId: number, itemName: string, quantity: number, unitPrice: number) => void
   setOrderStatus: (orderId: number, status: SnackOrder['status']) => void
   togglePcOnline: (pcId: number) => void
+  isLocked: (pcId: number) => boolean
+  lockPc: (pcId: number) => void
+  unlockPc: (pcId: number) => void
+  powerPc: (pcId: number, action: 'shutdown' | 'restart' | 'sleep') => void
+  messagePc: (pcId: number, message: string) => void
+  lockAll: () => void
 }
 
 const CafeContext = createContext<CafeState | null>(null)
@@ -44,6 +60,20 @@ export function CafeProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<SnackOrder[]>(SEED_ORDERS)
   const [settings] = useState<Settings>(DEFAULT_SETTINGS)
   const [tick, setTick] = useState(0)
+  const [lockedPcs, setLockedPcs] = useState<number[]>([])
+  const [controlLog, setControlLog] = useState<ControlEvent[]>([])
+
+  const logControl = useCallback(
+    (pcId: number, action: string, detail?: string) => {
+      setControlLog((prev) =>
+        [{ id: ++nextId, pcId, action, detail, at: Date.now() }, ...prev].slice(
+          0,
+          40,
+        ),
+      )
+    },
+    [],
+  )
 
   // 1-second tick drives live timers, like heartbeats in the real system.
   useEffect(() => {
@@ -65,7 +95,9 @@ export function CafeProvider({ children }: { children: React.ReactNode }) {
     setPcs((prev) =>
       prev.map((p) => (p.id === pcId ? { ...p, status: 'occupied' } : p)),
     )
-  }, [])
+    setLockedPcs((prev) => prev.filter((id) => id !== pcId))
+    logControl(pcId, 'unlock', 'session started')
+  }, [logControl])
 
   const endSession = useCallback(
     (pcId: number) => {
@@ -103,9 +135,11 @@ export function CafeProvider({ children }: { children: React.ReactNode }) {
       setPcs((prev) =>
         prev.map((p) => (p.id === pcId ? { ...p, status: 'available' } : p)),
       )
+      setLockedPcs((prev) => (prev.includes(pcId) ? prev : [...prev, pcId]))
+      logControl(pcId, 'lock', 'session ended')
       return { timeCost, snackCost, total: timeCost + snackCost, seconds: billable }
     },
-    [sessions, pcs, orders, settings],
+    [sessions, pcs, orders, settings, logControl],
   )
 
   const addOrder = useCallback(
@@ -153,6 +187,56 @@ export function CafeProvider({ children }: { children: React.ReactNode }) {
     )
   }, [])
 
+  const isLocked = useCallback(
+    (pcId: number) => lockedPcs.includes(pcId),
+    [lockedPcs],
+  )
+
+  const lockPc = useCallback(
+    (pcId: number) => {
+      setLockedPcs((prev) => (prev.includes(pcId) ? prev : [...prev, pcId]))
+      logControl(pcId, 'lock')
+    },
+    [logControl],
+  )
+
+  const unlockPc = useCallback(
+    (pcId: number) => {
+      setLockedPcs((prev) => prev.filter((id) => id !== pcId))
+      logControl(pcId, 'unlock')
+    },
+    [logControl],
+  )
+
+  const powerPc = useCallback(
+    (pcId: number, action: 'shutdown' | 'restart' | 'sleep') => {
+      logControl(pcId, action)
+      if (action === 'shutdown') {
+        setPcs((prev) =>
+          prev.map((p) =>
+            p.id === pcId
+              ? { ...p, status: 'offline', lastHeartbeat: Date.now() }
+              : p,
+          ),
+        )
+      }
+    },
+    [logControl],
+  )
+
+  const messagePc = useCallback(
+    (pcId: number, message: string) => {
+      logControl(pcId, 'message', message)
+    },
+    [logControl],
+  )
+
+  const lockAll = useCallback(() => {
+    const onlineIds = pcs.filter((p) => p.status !== 'offline').map((p) => p.id)
+    setLockedPcs((prev) => Array.from(new Set([...prev, ...onlineIds])))
+    onlineIds.forEach((id) => logControl(id, 'lock', 'lock all'))
+  }, [pcs, logControl])
+
   const value = useMemo(
     () => ({
       pcs,
@@ -160,13 +244,21 @@ export function CafeProvider({ children }: { children: React.ReactNode }) {
       orders,
       settings,
       tick,
+      lockedPcs,
+      controlLog,
       startSession,
       endSession,
       addOrder,
       setOrderStatus,
       togglePcOnline,
+      isLocked,
+      lockPc,
+      unlockPc,
+      powerPc,
+      messagePc,
+      lockAll,
     }),
-    [pcs, sessions, orders, settings, tick, startSession, endSession, addOrder, setOrderStatus, togglePcOnline],
+    [pcs, sessions, orders, settings, tick, lockedPcs, controlLog, startSession, endSession, addOrder, setOrderStatus, togglePcOnline, isLocked, lockPc, unlockPc, powerPc, messagePc, lockAll],
   )
 
   return <CafeContext.Provider value={value}>{children}</CafeContext.Provider>

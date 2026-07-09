@@ -237,6 +237,40 @@ class _DashboardTab extends StatelessWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(settings.cafeName),
+        actions: [
+          IconButton(
+            tooltip: 'Lock all online PCs',
+            icon: const Icon(Icons.lock_outline),
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Lock all PCs?'),
+                  content: const Text(
+                      'This locks every online computer immediately (e.g. closing time).'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Lock all'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true && context.mounted) {
+                await context.read<PCProvider>().lockAll();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Lock sent to all online PCs')),
+                  );
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
