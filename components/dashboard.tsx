@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Lock, Plus } from 'lucide-react'
+import { Check, Lock, Move, Plus } from 'lucide-react'
 import type { Pc } from '@/lib/types'
 import { useConsoleState, withRefresh } from '@/lib/use-cafe'
 import { addPc, lockAllPcs } from '@/app/actions/cafe'
@@ -26,6 +26,7 @@ export function Dashboard() {
   const [addOpen, setAddOpen] = useState(false)
   const [filter, setFilter] = useState<'all' | 'occupied' | 'available' | 'offline'>('all')
   const [busy, setBusy] = useState(false)
+  const [editingHall, setEditingHall] = useState(false)
 
   // New PC form
   const [newName, setNewName] = useState('')
@@ -57,7 +58,7 @@ export function Dashboard() {
 
   if (error) {
     return (
-      <EmptyState message="Could not reach the server. Check the database connection and try again." />
+      <EmptyState message="مش قادر أوصل للسيرفر — اتأكد من النت وجرّب تاني" />
     )
   }
   if (isLoading || !state || !stats) {
@@ -85,10 +86,22 @@ export function Dashboard() {
   return (
     <div className="flex flex-col gap-5">
       <SectionTitle
-        title="Fleet dashboard"
-        subtitle="Live status of every PC, session timers, and running revenue."
+        title="لوحة الأجهزة"
+        subtitle="حالة كل جهاز لايف، عدادات الوقت، والحساب الشغّال دلوقتي."
         actions={
           <>
+            <Btn
+              size="sm"
+              variant={editingHall ? 'primary' : 'outline'}
+              onClick={() => setEditingHall((v) => !v)}
+            >
+              {editingHall ? (
+                <Check className="size-3.5" aria-hidden="true" />
+              ) : (
+                <Move className="size-3.5" aria-hidden="true" />
+              )}
+              {editingHall ? 'خلصت' : 'عدّل القاعة'}
+            </Btn>
             <Btn
               size="sm"
               disabled={busy}
@@ -102,11 +115,11 @@ export function Dashboard() {
               }}
             >
               <Lock className="size-3.5" aria-hidden="true" />
-              Lock all idle
+              اقفل الفاضي
             </Btn>
             <Btn size="sm" variant="primary" onClick={() => setAddOpen(true)}>
               <Plus className="size-3.5" aria-hidden="true" />
-              Add PC
+              أضف جهاز
             </Btn>
           </>
         }
@@ -114,45 +127,52 @@ export function Dashboard() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          label="In session"
+          label="شغّال دلوقتي"
           value={String(stats.occupied)}
           tone="primary"
-          hint={`${state.pcs.length} PCs total`}
+          hint={`من ${state.pcs.length} جهاز`}
         />
-        <StatCard label="Available" value={String(stats.available)} tone="success" />
+        <StatCard label="فاضي" value={String(stats.available)} tone="success" />
         <StatCard
-          label="Offline"
+          label="مقطوع"
           value={String(stats.offline)}
           tone={stats.offline > 0 ? 'warning' : 'default'}
         />
         <StatCard
-          label="Running revenue"
+          label="الحساب الشغّال"
           value={`${stats.running.toFixed(2)}`}
-          hint={`${state.settings.currency} · live sessions + snacks`}
+          hint={`${state.settings.currency} · وقت + طلبات`}
           tone="success"
         />
       </div>
 
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter PCs">
-        {(['all', 'occupied', 'available', 'offline'] as const).map((f) => (
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="فلترة الأجهزة">
+        {(
+          [
+            ['all', 'الكل'],
+            ['occupied', 'شغّال'],
+            ['available', 'فاضي'],
+            ['offline', 'مقطوع'],
+          ] as const
+        ).map(([f, label]) => (
           <button
             key={f}
             type="button"
             onClick={() => setFilter(f)}
             aria-pressed={filter === f}
-            className={`rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors ${
+            className={`clip-plate border px-3 py-1 text-xs font-medium transition-colors ${
               filter === f
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border text-muted-foreground hover:text-foreground'
             }`}
           >
-            {f}
+            {label}
           </button>
         ))}
       </div>
 
       {state.pcs.length === 0 ? (
-        <EmptyState message="No PCs yet. Add your first PC to see it on the floor map." />
+        <EmptyState message="مفيش أجهزة لسه — أضف أول جهاز عشان يظهر على الخريطة" />
       ) : (
         <CafeMap
           pcs={state.pcs}
@@ -160,6 +180,7 @@ export function Dashboard() {
           pendingFor={pendingFor}
           settings={state.settings}
           filter={filter}
+          editing={editingHall}
           onSelect={(id) => setSelectedId(id)}
         />
       )}
@@ -168,7 +189,7 @@ export function Dashboard() {
         <PcDetail pc={selectedPc} state={state} onClose={() => setSelectedId(null)} />
       )}
 
-      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add a PC">
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="أضف جهاز جديد">
         <form
           className="flex flex-col gap-3"
           onSubmit={async (e) => {
@@ -192,7 +213,7 @@ export function Dashboard() {
             }
           }}
         >
-          <Field label="Name">
+          <Field label="اسم الجهاز">
             <input
               className={inputCls}
               value={newName}
@@ -201,7 +222,7 @@ export function Dashboard() {
               required
             />
           </Field>
-          <Field label="Zone">
+          <Field label="المنطقة">
             <select
               className={inputCls}
               value={newZone}
@@ -220,7 +241,7 @@ export function Dashboard() {
               placeholder="192.168.1.114"
             />
           </Field>
-          <Field label="Hourly rate">
+          <Field label="سعر الساعة">
             <input
               type="number"
               min={1}
@@ -231,7 +252,7 @@ export function Dashboard() {
             />
           </Field>
           <Btn variant="primary" disabled={busy} className="mt-1" {...{ type: 'submit' }}>
-            Add PC
+            أضف الجهاز
           </Btn>
         </form>
       </Modal>

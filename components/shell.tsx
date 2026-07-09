@@ -16,13 +16,13 @@ import { useConsoleState } from '@/lib/use-cafe'
 import { isHappyHour } from '@/lib/billing'
 
 const NAV = [
-  { href: '/', label: 'Dashboard', icon: LayoutGrid },
-  { href: '/orders', label: 'Orders', icon: Cookie },
-  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/reservations', label: 'Reservations', icon: CalendarClock },
-  { href: '/customers', label: 'Customers', icon: Users },
-  { href: '/activity', label: 'Activity', icon: Activity },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/', label: 'الأجهزة', icon: LayoutGrid },
+  { href: '/orders', label: 'الطلبات', icon: Cookie },
+  { href: '/analytics', label: 'الإحصائيات', icon: BarChart3 },
+  { href: '/reservations', label: 'الحجوزات', icon: CalendarClock },
+  { href: '/customers', label: 'الزباين', icon: Users },
+  { href: '/activity', label: 'السجل', icon: Activity },
+  { href: '/settings', label: 'الإعدادات', icon: Settings },
 ] as const
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -72,7 +72,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex items-center gap-2.5 border-l-2 px-3 py-2 text-sm font-semibold uppercase tracking-wider transition-all ${
+                className={`flex items-center gap-2.5 border-l-2 px-3 py-2 text-sm font-semibold transition-all ${
                   active
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground'

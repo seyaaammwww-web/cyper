@@ -20,8 +20,8 @@
   --color-warning: #f5a524;
   --color-warning-foreground: #1e1404;
 
-  --font-sans: var(--font-rajdhani), system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), monospace;
+  --font-sans: var(--font-rajdhani), var(--font-cairo), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), var(--font-cairo), monospace;
 
   --radius: 0.25rem;
 

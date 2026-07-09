@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Rajdhani, Geist_Mono } from 'next/font/google'
+import { Rajdhani, Cairo, Geist_Mono } from 'next/font/google'
 import { Shell } from '@/components/shell'
 import './globals.css'
 
@@ -7,6 +7,11 @@ const rajdhani = Rajdhani({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-rajdhani',
+})
+const cairo = Cairo({
+  subsets: ['arabic'],
+  weight: ['400', '600', '700'],
+  variable: '--font-cairo',
 })
 const geistMono = Geist_Mono({
   subsets: ['latin'],
@@ -31,7 +36,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`bg-background ${rajdhani.variable} ${geistMono.variable}`}
+      className={`bg-background ${rajdhani.variable} ${cairo.variable} ${geistMono.variable}`}
     >
       <body className="font-sans antialiased">
         <Shell>{children}</Shell>

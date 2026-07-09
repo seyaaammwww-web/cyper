@@ -301,6 +301,51 @@ export async function updatePc(
   await log(pcId, 'pc_updated', undefined, 'system')
 }
 
+/**
+ * Move a PC to a new slot on the floor map. If another PC already occupies
+ * the target slot, the two PCs swap places.
+ */
+export async function movePc(
+  pcId: number,
+  target: { mapCol: 'a' | 'b'; slotIndex: number },
+) {
+  const [moving] = await db.select().from(pcs).where(eq(pcs.id, pcId)).limit(1)
+  if (!moving) throw new Error('PC not found')
+
+  const [occupant] = await db
+    .select()
+    .from(pcs)
+    .where(
+      and(
+        eq(pcs.mapCol, target.mapCol),
+        eq(pcs.slotIndex, target.slotIndex),
+        ne(pcs.id, pcId),
+      ),
+    )
+    .limit(1)
+
+  if (occupant) {
+    // Swap: occupant takes the moving PC's old slot
+    await db
+      .update(pcs)
+      .set({ mapCol: moving.mapCol, slotIndex: moving.slotIndex })
+      .where(eq(pcs.id, occupant.id))
+  }
+  await db
+    .update(pcs)
+    .set({ mapCol: target.mapCol, slotIndex: target.slotIndex })
+    .where(eq(pcs.id, pcId))
+
+  await log(
+    pcId,
+    'pc_moved',
+    occupant
+      ? `swapped with ${occupant.name}`
+      : `to ${target.mapCol.toUpperCase()}-${target.slotIndex + 1}`,
+    'system',
+  )
+}
+
 // ---------- Customers ----------
 
 export async function addCustomer(input: {
